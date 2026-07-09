@@ -10,6 +10,7 @@
 - All database access through typed query functions, never inline in components
 - No `any`. If a type is unknown, model it.
 - Environment variables typed and validated at startup, never read raw
+- Read DESIGN.md before any UI work; match the visual spec exactly
 
 ## Working agreement
 - Read CONTRACT.md before implementing any feature
