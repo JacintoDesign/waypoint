@@ -17,7 +17,7 @@ places
     id, guide_id, name, address, notes, rating, category, sort_order, location geography(Point, 4326)
 
 photos
-    id, place_id, storarge_path, caption, sort_order
+    id, place_id, storage_path, caption, sort_order
 ```
 
 ## Rules
