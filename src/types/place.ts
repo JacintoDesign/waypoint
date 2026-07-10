@@ -15,8 +15,18 @@ export type Place = {
   location: PlaceLocation;
 };
 
-export type PlaceWithDistance = Place & {
+export type NearbyPlace = Place & {
   distanceMeters: number;
+};
+
+export type PlaceInBounds = Place;
+
+export type PlacesNearbyResponse = {
+  places: NearbyPlace[];
+};
+
+export type PlacesInBoundsResponse = {
+  places: PlaceInBounds[];
 };
 
 export type NearbyPlacesRow = {
@@ -31,4 +41,17 @@ export type NearbyPlacesRow = {
   lat: number;
   lng: number;
   distance_meters: number;
+};
+
+export type PlaceInBoundsRow = {
+  id: string;
+  guide_id: string;
+  name: string;
+  address: string | null;
+  notes: string | null;
+  rating: number | null;
+  category: string | null;
+  sort_order: number;
+  latitude: number;
+  longitude: number;
 };

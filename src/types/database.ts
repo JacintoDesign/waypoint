@@ -1,4 +1,4 @@
-import type { NearbyPlacesRow } from "@/types/place";
+import type { NearbyPlacesRow, PlaceInBoundsRow } from "@/types/place";
 
 export type Database = {
   public: {
@@ -13,6 +13,16 @@ export type Database = {
           guide_id?: string | null;
         };
         Returns: NearbyPlacesRow[];
+      };
+      get_places_in_bounds: {
+        Args: {
+          p_north: number;
+          p_south: number;
+          p_east: number;
+          p_west: number;
+          p_guide_id?: string | null;
+        };
+        Returns: PlaceInBoundsRow[];
       };
     };
     Enums: Record<string, never>;

@@ -1,5 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { NearbyPlacesRow, PlaceWithDistance } from "@/types/place";
+import type { BoundsParams } from "@/lib/bounds";
+import type {
+  NearbyPlace,
+  NearbyPlacesRow,
+  Place,
+  PlaceInBounds,
+  PlaceInBoundsRow,
+} from "@/types/place";
 
 export type GetPlacesNearbyParams = {
   lat: number;
@@ -8,7 +15,22 @@ export type GetPlacesNearbyParams = {
   guideId?: string;
 };
 
-function mapRowToPlaceWithDistance(row: NearbyPlacesRow): PlaceWithDistance {
+export type GetPlacesInBoundsParams = BoundsParams;
+
+function mapBasePlaceFields(
+  row: Pick<
+    NearbyPlacesRow | PlaceInBoundsRow,
+    | "id"
+    | "guide_id"
+    | "name"
+    | "address"
+    | "notes"
+    | "rating"
+    | "category"
+    | "sort_order"
+  >,
+  location: Place["location"],
+): Place {
   return {
     id: row.id,
     guideId: row.guide_id,
@@ -18,17 +40,27 @@ function mapRowToPlaceWithDistance(row: NearbyPlacesRow): PlaceWithDistance {
     rating: row.rating,
     category: row.category,
     sortOrder: row.sort_order,
-    location: {
-      lat: row.lat,
-      lng: row.lng,
-    },
+    location,
+  };
+}
+
+function mapRowToNearbyPlace(row: NearbyPlacesRow): NearbyPlace {
+  return {
+    ...mapBasePlaceFields(row, { lat: row.lat, lng: row.lng }),
     distanceMeters: row.distance_meters,
   };
 }
 
+function mapRowToPlaceInBounds(row: PlaceInBoundsRow): PlaceInBounds {
+  return mapBasePlaceFields(row, {
+    lat: row.latitude,
+    lng: row.longitude,
+  });
+}
+
 export async function getPlacesNearby(
   params: GetPlacesNearbyParams,
-): Promise<PlaceWithDistance[]> {
+): Promise<NearbyPlace[]> {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.rpc("get_places_nearby", {
     lat: params.lat,
@@ -41,5 +73,24 @@ export async function getPlacesNearby(
     throw error;
   }
 
-  return (data ?? []).map(mapRowToPlaceWithDistance);
+  return (data ?? []).map(mapRowToNearbyPlace);
+}
+
+export async function getPlacesInBounds(
+  params: GetPlacesInBoundsParams,
+): Promise<PlaceInBounds[]> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_places_in_bounds", {
+    p_north: params.north,
+    p_south: params.south,
+    p_east: params.east,
+    p_west: params.west,
+    p_guide_id: params.guideId ?? null,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map(mapRowToPlaceInBounds);
 }
