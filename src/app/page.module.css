@@ -1,0 +1,27 @@
+.page {
+  max-width: var(--spacing-max-width);
+  margin-inline: auto;
+  padding: var(--spacing-gutter);
+  padding-block: var(--spacing-lg);
+}
+
+.header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.title {
+  font-family: var(--font-family-heading);
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--color-on-surface);
+}
+
+.description {
+  margin: var(--spacing-md) 0 0;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--color-on-surface);
+  max-width: 60ch;
+}

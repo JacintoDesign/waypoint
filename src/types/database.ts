@@ -24,6 +24,12 @@ export type Database = {
         };
         Returns: PlaceInBoundsRow[];
       };
+      get_places_by_guide_id: {
+        Args: {
+          p_guide_id: string;
+        };
+        Returns: PlaceInBoundsRow[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

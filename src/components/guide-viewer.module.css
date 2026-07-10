@@ -1,0 +1,49 @@
+.viewer {
+  display: grid;
+  grid-template-columns: 55fr 45fr;
+  gap: var(--spacing-lg);
+  min-height: 560px;
+  height: calc(100dvh - 220px);
+}
+
+.cardList {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-height: 0;
+  padding-right: var(--spacing-xs);
+}
+
+.mapPanel {
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-md);
+  overflow: hidden;
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .viewer {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(280px, 40vh) 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .cardList {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .mapPanel {
+    order: -1;
+    min-height: 280px;
+  }
+}

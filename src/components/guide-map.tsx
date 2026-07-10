@@ -24,6 +24,7 @@ export type GuideMapPlace = Pick<Place, "id" | "name" | "location">;
 export type GuideMapProps = {
   places: GuideMapPlace[];
   activePlaceId?: string;
+  onPinClick?: (placeId: string) => void;
   className?: string;
 };
 
@@ -52,6 +53,7 @@ function applyViewport(map: MaplibreMap, places: GuideMapPlace[]) {
 export function GuideMap({
   places,
   activePlaceId,
+  onPinClick,
   className,
 }: GuideMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,8 @@ export function GuideMap({
   );
   const markersByIdRef = useRef<Map<string, MarkerEntry>>(new Map());
   const lastViewportKeyRef = useRef("");
+  const onPinClickRef = useRef(onPinClick);
+  onPinClickRef.current = onPinClick;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -95,7 +99,14 @@ export function GuideMap({
           return;
         }
 
-        syncMarkers(map, maplibregl.default, places, activePlaceId, markersByIdRef);
+        syncMarkers(
+          map,
+          maplibregl.default,
+          places,
+          activePlaceId,
+          markersByIdRef,
+          onPinClickRef,
+        );
         lastViewportKeyRef.current = viewportKey(places);
         applyViewport(map, places);
       });
@@ -125,7 +136,14 @@ export function GuideMap({
       return;
     }
 
-    syncMarkers(map, maplibregl, places, activePlaceId, markersByIdRef);
+    syncMarkers(
+      map,
+      maplibregl,
+      places,
+      activePlaceId,
+      markersByIdRef,
+      onPinClickRef,
+    );
   }, [places, activePlaceId]);
 
   useEffect(() => {
@@ -159,6 +177,7 @@ function syncMarkers(
   places: GuideMapPlace[],
   activePlaceId: string | undefined,
   markersById: { current: Map<string, MarkerEntry> },
+  onPinClickRef: { current: ((placeId: string) => void) | undefined },
 ) {
   const nextPlaceIds = new Set(places.map((place) => place.id));
 
@@ -177,6 +196,7 @@ function syncMarkers(
       existing.marker.setLngLat(toLngLat(place.location));
       existing.element.title = place.name;
       existing.element.classList.toggle(styles.pinActive, isActive);
+      existing.element.onclick = () => onPinClickRef.current?.(place.id);
       continue;
     }
 
@@ -185,6 +205,7 @@ function syncMarkers(
       ? `${styles.pin} ${styles.pinActive}`
       : styles.pin;
     element.title = place.name;
+    element.onclick = () => onPinClickRef.current?.(place.id);
 
     const marker = new maplibregl.Marker({ element })
       .setLngLat(toLngLat(place.location))

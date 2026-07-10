@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "seed:acceptance": "node scripts/seed-acceptance.mjs"
+    "seed:acceptance": "node scripts/seed-acceptance.mjs",
+    "seed:content": "node scripts/seed-content.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",

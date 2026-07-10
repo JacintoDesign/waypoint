@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { BoundsParams } from "@/lib/bounds";
+import { parseEwkbPoint } from "@/lib/parse-ewkb-point";
 import type {
   NearbyPlace,
   NearbyPlacesRow,
@@ -16,6 +17,18 @@ export type GetPlacesNearbyParams = {
 };
 
 export type GetPlacesInBoundsParams = BoundsParams;
+
+type PlaceByGuideRow = {
+  id: string;
+  guide_id: string;
+  name: string;
+  address: string | null;
+  notes: string | null;
+  rating: number | null;
+  category: string | null;
+  sort_order: number;
+  location: string;
+};
 
 function mapBasePlaceFields(
   row: Pick<
@@ -74,6 +87,27 @@ export async function getPlacesNearby(
   }
 
   return (data ?? []).map(mapRowToNearbyPlace);
+}
+
+export async function getPlacesByGuideId(guideId: string): Promise<Place[]> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("places")
+    .select(
+      "id, guide_id, name, address, notes, rating, category, sort_order, location",
+    )
+    .eq("guide_id", guideId)
+    .not("location", "is", null)
+    .order("sort_order")
+    .order("name");
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as PlaceByGuideRow[]).map((row) =>
+    mapBasePlaceFields(row, parseEwkbPoint(row.location)),
+  );
 }
 
 export async function getPlacesInBounds(
