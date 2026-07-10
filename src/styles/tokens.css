@@ -1,0 +1,38 @@
+:root {
+  /* Colors */
+  --color-primary: #c4552d;
+  --color-secondary: #5a6b52;
+  --color-neutral: #f6f1e9;
+  --color-surface: #fffcf8;
+  --color-on-surface: #2a2521;
+  --color-muted: #6b635c;
+  --color-border: #e5ddd3;
+  --color-on-primary: #fffcf8;
+  --color-primary-soft: #f3e4dc;
+  --color-secondary-soft: #e8ede5;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  --spacing-xxl: 64px;
+  --spacing-gutter: 24px;
+  --spacing-margin: 32px;
+  --spacing-max-width: 1200px;
+
+  /* Rounded */
+  --rounded-none: 0;
+  --rounded-sm: 4px;
+  --rounded-md: 8px;
+  --rounded-lg: 12px;
+
+  /* Typography */
+  --font-family-heading: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype",
+    palatino, serif;
+  --font-family-body: var(--font-inter), system-ui, sans-serif;
+  --typography-body-size: 16px;
+  --typography-body-weight: 400;
+  --typography-body-line-height: 1.6;
+}
