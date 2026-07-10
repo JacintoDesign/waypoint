@@ -1,4 +1,12 @@
 /** Fixture coordinates for location acceptance tests (TEST_PLAN.md). */
+export const PLACE_A_DISTANCE_METERS = 500;
+
+/** Query point ~500m south of Place A (TEST_PLAN.md nearby scenario). */
+export const QUERY_POINT = {
+  lat: 40.745503,
+  lng: -73.98,
+} as const;
+
 export const placeA = {
   id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
   guideId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
