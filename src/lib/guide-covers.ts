@@ -1,4 +1,6 @@
 import {
+  GUIDE_COVER_PHOTO_TRANSFORM,
+  GUIDE_LIST_COVER_TRANSFORM,
   PLACE_PHOTOS_BUCKET,
   validateImageFile,
 } from "@/lib/place-photos";
@@ -65,7 +67,10 @@ export async function resolveCoverPhotoSrc(
     return coverPhotoUrl;
   }
 
-  const signed = await signPhotoStoragePaths([coverPhotoUrl]);
+  const signed = await signPhotoStoragePaths(
+    [coverPhotoUrl],
+    GUIDE_COVER_PHOTO_TRANSFORM,
+  );
   return signed.get(coverPhotoUrl) ?? null;
 }
 
@@ -76,7 +81,10 @@ export async function resolveCoverPhotoSrcs(
     (url): url is string =>
       typeof url === "string" && url.length > 0 && !isExternalCoverUrl(url),
   );
-  const signed = await signPhotoStoragePaths(storagePaths);
+  const signed = await signPhotoStoragePaths(
+    storagePaths,
+    GUIDE_LIST_COVER_TRANSFORM,
+  );
   const result = new Map<string, string>();
 
   for (const url of coverPhotoUrls) {

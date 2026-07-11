@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GET as getNearby } from "@/app/api/places/nearby/route";
 import { GET as getInBounds } from "@/app/api/places/in-bounds/route";
 import {
@@ -11,6 +11,13 @@ import {
   QUERY_POINT,
   viewportCoveringAOnly,
 } from "@/__tests__/fixtures/places";
+import {
+  cleanupAcceptanceLocationFixtures,
+  createAcceptanceServiceClient,
+  seedAcceptanceLocationFixtures,
+} from "@/__tests__/helpers/acceptance-location-fixtures";
+import type { Database } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) {
@@ -41,7 +48,8 @@ loadEnvFile(join(process.cwd(), ".env"));
 
 const hasIntegrationEnv =
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-  Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
+  Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 function buildNearbyRequest(): Request {
   const params = new URLSearchParams({
@@ -70,10 +78,19 @@ function buildInBoundsRequest(bounds: {
 }
 
 describe.skipIf(!hasIntegrationEnv)("location acceptance API (integration)", () => {
-  beforeAll(() => {
+  let serviceClient: SupabaseClient<Database>;
+
+  beforeAll(async () => {
+    serviceClient = createAcceptanceServiceClient();
+    await seedAcceptanceLocationFixtures(serviceClient);
+  });
+
+  afterAll(async () => {
     if (!hasIntegrationEnv) {
       return;
     }
+
+    await cleanupAcceptanceLocationFixtures(serviceClient);
   });
 
   it("nearby: returns A within radius, omits B, distance within 5% of 500m", async () => {

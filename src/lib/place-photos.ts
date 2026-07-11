@@ -3,6 +3,32 @@ export const PLACE_PHOTOS_BUCKET = "place-photos";
 /** Signed URL lifetime in seconds (1 hour). */
 export const SIGNED_URL_TTL_SECONDS = 3600;
 
+/** Resize options passed to Supabase Storage signed URL transforms. */
+export type SignedUrlTransform = {
+  width: number;
+  height?: number;
+  resize?: "cover" | "contain" | "fill";
+};
+
+/** Place card galleries display at ~600px; serve 2× for retina without full originals. */
+export const PLACE_CARD_PHOTO_TRANSFORM: SignedUrlTransform = {
+  width: 1200,
+  resize: "contain",
+};
+
+/** Hero cover images on guide pages. */
+export const GUIDE_COVER_PHOTO_TRANSFORM: SignedUrlTransform = {
+  width: 1600,
+  resize: "contain",
+};
+
+/** Cover thumbnails on the guide list grid. */
+export const GUIDE_LIST_COVER_TRANSFORM: SignedUrlTransform = {
+  width: 800,
+  height: 600,
+  resize: "cover",
+};
+
 /** Maximum size for a single uploaded image (10 MiB). */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 

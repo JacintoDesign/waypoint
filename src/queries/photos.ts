@@ -1,7 +1,9 @@
 import {
+  PLACE_CARD_PHOTO_TRANSFORM,
   PLACE_PHOTOS_BUCKET,
   SIGNED_URL_TTL_SECONDS,
   signedUrlExpiresAt,
+  type SignedUrlTransform,
 } from "@/lib/place-photos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -24,12 +26,37 @@ function mapRowToSignedPhoto(
 
 async function signStoragePaths(
   storagePaths: string[],
+  transform?: SignedUrlTransform,
 ): Promise<Map<string, string>> {
   if (storagePaths.length === 0) {
     return new Map();
   }
 
   const supabase = createSupabaseServiceClient();
+  const signedUrls = new Map<string, string>();
+
+  if (transform) {
+    const results = await Promise.all(
+      storagePaths.map(async (path) => {
+        const { data, error } = await supabase.storage
+          .from(PLACE_PHOTOS_BUCKET)
+          .createSignedUrl(path, SIGNED_URL_TTL_SECONDS, { transform });
+
+        if (error) {
+          throw error;
+        }
+
+        return { path, signedUrl: data.signedUrl };
+      }),
+    );
+
+    for (const item of results) {
+      signedUrls.set(item.path, item.signedUrl);
+    }
+
+    return signedUrls;
+  }
+
   const { data, error } = await supabase.storage
     .from(PLACE_PHOTOS_BUCKET)
     .createSignedUrls(storagePaths, SIGNED_URL_TTL_SECONDS);
@@ -37,8 +64,6 @@ async function signStoragePaths(
   if (error) {
     throw error;
   }
-
-  const signedUrls = new Map<string, string>();
 
   for (const item of data ?? []) {
     if (item.path && item.signedUrl) {
@@ -51,8 +76,9 @@ async function signStoragePaths(
 
 export async function signPhotoStoragePaths(
   storagePaths: string[],
+  transform?: SignedUrlTransform,
 ): Promise<Map<string, string>> {
-  return signStoragePaths(storagePaths);
+  return signStoragePaths(storagePaths, transform);
 }
 
 export async function getPhotosByPlaceIds(
@@ -79,6 +105,7 @@ export async function getPhotosByPlaceIds(
 
 export async function getSignedPhotosByPlaceIds(
   placeIds: string[],
+  options?: { transform?: SignedUrlTransform },
 ): Promise<SignedPlacePhoto[]> {
   const rows = await getPhotosByPlaceIds(placeIds);
   if (rows.length === 0) {
@@ -87,6 +114,7 @@ export async function getSignedPhotosByPlaceIds(
 
   const signedUrls = await signStoragePaths(
     rows.map((row) => row.storage_path),
+    options?.transform,
   );
   const expiresAt = signedUrlExpiresAt();
 
@@ -118,7 +146,9 @@ export async function getPrimarySignedPhotosByPlaceIds(
 export async function getSignedPhotosGroupedByPlaceIds(
   placeIds: string[],
 ): Promise<Map<string, SignedPlacePhoto[]>> {
-  const photos = await getSignedPhotosByPlaceIds(placeIds);
+  const photos = await getSignedPhotosByPlaceIds(placeIds, {
+    transform: PLACE_CARD_PHOTO_TRANSFORM,
+  });
   const photosByPlaceId = new Map<string, SignedPlacePhoto[]>();
 
   for (const photo of photos) {
@@ -211,13 +241,17 @@ export async function getAccessiblePhotoById(
 
 export async function getSignedPhotoById(
   photoId: string,
+  options?: { transform?: SignedUrlTransform },
 ): Promise<SignedPlacePhoto | null> {
   const row = await getAccessiblePhotoById(photoId);
   if (!row) {
     return null;
   }
 
-  const signedUrls = await signStoragePaths([row.storage_path]);
+  const signedUrls = await signStoragePaths(
+    [row.storage_path],
+    options?.transform,
+  );
   const url = signedUrls.get(row.storage_path);
   if (!url) {
     return null;

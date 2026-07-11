@@ -12,6 +12,8 @@ export type SignedPhotoProps = {
   expiresAt: number;
   alt: string;
   className?: string;
+  /** Use "full" for editor previews; default "display" serves a resized transform. */
+  variant?: "display" | "full";
 };
 
 export function SignedPhoto({
@@ -20,6 +22,7 @@ export function SignedPhoto({
   expiresAt,
   alt,
   className,
+  variant = "display",
 }: SignedPhotoProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [currentExpiresAt, setCurrentExpiresAt] = useState(expiresAt);
@@ -38,7 +41,9 @@ export function SignedPhoto({
     refreshingRef.current = true;
 
     try {
-      const response = await fetch(`/api/photos/${photoId}/signed-url`);
+      const response = await fetch(
+        `/api/photos/${photoId}/signed-url?variant=${variant}`,
+      );
       if (!response.ok) {
         return;
       }
@@ -49,7 +54,7 @@ export function SignedPhoto({
     } finally {
       refreshingRef.current = false;
     }
-  }, [photoId]);
+  }, [photoId, variant]);
 
   useEffect(() => {
     const msUntilRefresh = currentExpiresAt - Date.now() - REFRESH_BUFFER_MS;
