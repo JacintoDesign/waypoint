@@ -1,12 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 
 const BUCKET = "place-photos";
 
-const SEED_USER_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+const PLACEHOLDER_USER_ID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
 const SEED_GUIDE_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+
+const AUTHOR_EMAIL = "ztm.jacinto.design@gmail.com";
+const AUTHOR_DISPLAY_NAME = "Jacinto Wong";
+const AUTHOR_HANDLE = "jacinto_wong";
 
 /** @type {ReadonlyArray<{
  *   id: string;
@@ -233,12 +236,118 @@ async function cleanSeed(supabase) {
     console.log(`Removed ${storagePaths.length} object(s) from "${BUCKET}".`);
   }
 
-  const { error: authError } = await supabase.auth.admin.deleteUser(SEED_USER_ID);
+  const { error: guideDeleteError } = await supabase
+    .from("guides")
+    .delete()
+    .eq("id", SEED_GUIDE_ID);
+  if (guideDeleteError) {
+    throw guideDeleteError;
+  }
+
+  await removePlaceholderUser(supabase);
+
+  console.log("Clean complete.");
+}
+
+async function findAuthUserIdViaList(supabase, email) {
+  let page = 1;
+  const perPage = 1000;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      return null;
+    }
+
+    const match = data.users.find((user) => user.email === email);
+    if (match) {
+      return match.id;
+    }
+
+    if (data.users.length < perPage) {
+      return null;
+    }
+
+    page += 1;
+  }
+}
+
+async function findAuthUserIdViaGenerateLink(supabase, email) {
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (error) {
+    return null;
+  }
+
+  return data.user?.id ?? null;
+}
+
+async function findAuthUserIdByEmail(supabase, email) {
+  return (
+    (await findAuthUserIdViaList(supabase, email)) ??
+    (await findAuthUserIdViaGenerateLink(supabase, email))
+  );
+}
+
+async function ensureAuthorUser(supabase) {
+  const existingId = await findAuthUserIdByEmail(supabase, AUTHOR_EMAIL);
+  if (existingId) {
+    console.log(`Reusing existing author account (${AUTHOR_EMAIL}).`);
+    return existingId;
+  }
+
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: AUTHOR_EMAIL,
+    email_confirm: true,
+  });
+  if (error) {
+    const duplicateEmail =
+      error.message?.includes("already been registered") ||
+      error.message?.includes("already exists") ||
+      error.code === "email_exists";
+    if (duplicateEmail) {
+      const raced = await findAuthUserIdByEmail(supabase, AUTHOR_EMAIL);
+      if (raced) {
+        console.log(`Reusing existing author account (${AUTHOR_EMAIL}).`);
+        return raced;
+      }
+    }
+    throw error;
+  }
+
+  console.log(`Created author account (${AUTHOR_EMAIL}).`);
+  return data.user.id;
+}
+
+async function ensureAuthorProfile(supabase, userId) {
+  const { error } = await supabase.from("users").upsert(
+    {
+      id: userId,
+      handle: AUTHOR_HANDLE,
+      display_name: AUTHOR_DISPLAY_NAME,
+    },
+    { onConflict: "id" },
+  );
+  if (error) {
+    throw error;
+  }
+}
+
+async function removePlaceholderUser(supabase) {
+  const { error: userDeleteError } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", PLACEHOLDER_USER_ID);
+  if (userDeleteError) {
+    throw userDeleteError;
+  }
+
+  const { error: authError } = await supabase.auth.admin.deleteUser(PLACEHOLDER_USER_ID);
   if (authError && authError.message !== "User not found") {
     throw authError;
   }
-
-  console.log("Clean complete.");
 }
 
 function assertPhotoFilesExist() {
@@ -257,28 +366,12 @@ function assertPhotoFilesExist() {
 async function insertSeed(supabase) {
   console.log("Inserting Copenhagen seed data...");
 
-  const { error: authCreateError } = await supabase.auth.admin.createUser({
-    id: SEED_USER_ID,
-    email: "copenhagen-seed@waypoint.local",
-    password: createHash("sha256").update(SEED_USER_ID).digest("hex"),
-    email_confirm: true,
-  });
-  if (authCreateError) {
-    throw authCreateError;
-  }
-
-  const { error: userError } = await supabase.from("users").insert({
-    id: SEED_USER_ID,
-    handle: "copenhagen_guide",
-    display_name: "Sofie Andersen",
-  });
-  if (userError) {
-    throw userError;
-  }
+  const authorId = await ensureAuthorUser(supabase);
+  await ensureAuthorProfile(supabase, authorId);
 
   const { error: guideError } = await supabase.from("guides").insert({
     id: SEED_GUIDE_ID,
-    user_id: SEED_USER_ID,
+    user_id: authorId,
     title: "Copenhagen Again",
     description:
       "A photo-forward guide to Copenhagen landmarks, museums, and harbour walks — the places worth visiting again.",
@@ -335,7 +428,7 @@ async function insertSeed(supabase) {
   }
 
   console.log(
-    `Seed complete: author @copenhagen_guide, guide "${SEED_GUIDE_ID}", ${PLACES.length} places.`,
+    `Seed complete: author @${AUTHOR_HANDLE} (${AUTHOR_EMAIL}), guide "${SEED_GUIDE_ID}", ${PLACES.length} places.`,
   );
 }
 
@@ -350,6 +443,12 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Content seed failed:", error.message ?? error);
+  const detail =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null
+        ? JSON.stringify(error)
+        : String(error);
+  console.error("Content seed failed:", detail);
   process.exit(1);
 });

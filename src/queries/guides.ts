@@ -14,7 +14,7 @@ function mapRowToGuide(row: GuideRow): Guide {
 }
 
 export async function getPublicGuideBySlug(slug: string): Promise<Guide | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("guides")
     .select(
@@ -22,6 +22,44 @@ export async function getPublicGuideBySlug(slug: string): Promise<Guide | null> 
     )
     .eq("slug", slug)
     .eq("is_public", true)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapRowToGuide(data as GuideRow) : null;
+}
+
+export async function getGuidesByUserId(userId: string): Promise<Guide[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("guides")
+    .select(
+      "id, user_id, title, description, cover_photo_url, is_public, slug",
+    )
+    .eq("user_id", userId)
+    .order("title");
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapRowToGuide(row as GuideRow));
+}
+
+export async function getGuideByIdForUser(
+  guideId: string,
+  userId: string,
+): Promise<Guide | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("guides")
+    .select(
+      "id, user_id, title, description, cover_photo_url, is_public, slug",
+    )
+    .eq("id", guideId)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {

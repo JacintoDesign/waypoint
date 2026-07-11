@@ -38,5 +38,8 @@ Thumbs.db
 supabase/.temp/
 supabase/.branches/
 
+# one-off local scripts (not committed)
+scripts/set-author-password.mjs
+
 # turbo
 .turbo/

@@ -74,7 +74,7 @@ function mapRowToPlaceInBounds(row: PlaceInBoundsRow): PlaceInBounds {
 export async function getPlacesNearby(
   params: GetPlacesNearbyParams,
 ): Promise<NearbyPlace[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("get_places_nearby", {
     lat: params.lat,
     lng: params.lng,
@@ -90,7 +90,7 @@ export async function getPlacesNearby(
 }
 
 export async function getPlacesByGuideId(guideId: string): Promise<Place[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("places")
     .select(
@@ -113,7 +113,7 @@ export async function getPlacesByGuideId(guideId: string): Promise<Place[]> {
 export async function getPlacesInBounds(
   params: GetPlacesInBoundsParams,
 ): Promise<PlaceInBounds[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("get_places_in_bounds", {
     p_north: params.north,
     p_south: params.south,

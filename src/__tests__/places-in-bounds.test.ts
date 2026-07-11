@@ -9,7 +9,7 @@ import {
 const rpcMock = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: () => ({
+  createSupabaseServerClient: async () => ({
     rpc: rpcMock,
   }),
 }));

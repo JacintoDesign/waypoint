@@ -56,7 +56,7 @@ export async function getPhotosByPlaceIds(
     return [];
   }
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("photos")
     .select("id, place_id, storage_path, caption, sort_order")
@@ -112,7 +112,7 @@ export async function getPrimarySignedPhotosByPlaceIds(
 export async function getAccessiblePhotoById(
   photoId: string,
 ): Promise<PhotoRow | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("photos")
     .select("id, place_id, storage_path, caption, sort_order")

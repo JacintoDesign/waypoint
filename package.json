@@ -13,6 +13,7 @@
     "seed:content": "node scripts/seed-content.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "maplibre-gl": "^5.24.0",
     "next": "^16.2.10",
