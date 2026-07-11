@@ -5,7 +5,7 @@ import { PublicBrowseNav } from "@/components/public-browse-nav";
 import { getSessionUser } from "@/lib/auth";
 import { resolveCoverPhotoSrc } from "@/lib/guide-covers";
 import { getGuideBySlug } from "@/queries/guides";
-import { getPrimarySignedPhotosByPlaceIds } from "@/queries/photos";
+import { getSignedPhotosGroupedByPlaceIds } from "@/queries/photos";
 import { getPlacesByGuideId } from "@/queries/places";
 import styles from "./page.module.css";
 
@@ -27,7 +27,7 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
 
   const places = await getPlacesByGuideId(guide.id);
   const photosByPlaceId = places.length
-    ? await getPrimarySignedPhotosByPlaceIds(places.map((place) => place.id))
+    ? await getSignedPhotosGroupedByPlaceIds(places.map((place) => place.id))
     : new Map();
 
   const placesWithPhotos = places.map((place) => ({
@@ -36,14 +36,14 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
     address: place.address,
     category: place.category,
     location: place.location,
-    photo: photosByPlaceId.get(place.id),
+    photos: photosByPlaceId.get(place.id) ?? [],
   }));
 
   const coverPhotoSrc = await resolveCoverPhotoSrc(guide.coverPhotoUrl);
 
   return (
     <main className={styles.page}>
-      {!user ? <PublicBrowseNav /> : null}
+      <PublicBrowseNav />
 
       {isOwnerPreview ? (
         <div className={styles.previewBanner}>

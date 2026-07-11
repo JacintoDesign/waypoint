@@ -1,4 +1,4 @@
-import { SignedPhoto } from "@/components/signed-photo";
+import { PlacePhotoGallery } from "@/components/place-photo-gallery";
 import { buildGeoDirectionsHref } from "@/lib/geo-link";
 import type { Place } from "@/types/place";
 import type { SignedPlacePhoto } from "@/types/photo";
@@ -8,7 +8,7 @@ export type PlaceCardPlace = Pick<
   Place,
   "id" | "name" | "address" | "category" | "location"
 > & {
-  photo?: SignedPlacePhoto;
+  photos?: SignedPlacePhoto[];
 };
 
 export type PlaceCardProps = {
@@ -24,7 +24,7 @@ export function PlaceCard({
   onMouseEnter,
   onMouseLeave,
 }: PlaceCardProps) {
-  const photoAlt = place.photo?.caption ?? place.name;
+  const photos = place.photos ?? [];
 
   return (
     <article
@@ -33,14 +33,9 @@ export function PlaceCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {place.photo ? (
+      {photos.length > 0 ? (
         <div className={styles.photoFrame}>
-          <SignedPhoto
-            photoId={place.photo.id}
-            src={place.photo.url}
-            expiresAt={place.photo.expiresAt}
-            alt={photoAlt}
-          />
+          <PlacePhotoGallery photos={photos} placeName={place.name} />
         </div>
       ) : null}
       <div className={styles.body}>
@@ -60,9 +55,6 @@ export function PlaceCard({
             Directions
           </a>
         </div>
-        {place.photo?.caption && place.photo.caption !== place.name ? (
-          <p className={styles.caption}>{place.photo.caption}</p>
-        ) : null}
       </div>
     </article>
   );

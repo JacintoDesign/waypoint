@@ -115,6 +115,21 @@ export async function getPrimarySignedPhotosByPlaceIds(
   return primaryByPlaceId;
 }
 
+export async function getSignedPhotosGroupedByPlaceIds(
+  placeIds: string[],
+): Promise<Map<string, SignedPlacePhoto[]>> {
+  const photos = await getSignedPhotosByPlaceIds(placeIds);
+  const photosByPlaceId = new Map<string, SignedPlacePhoto[]>();
+
+  for (const photo of photos) {
+    const existing = photosByPlaceId.get(photo.placeId) ?? [];
+    existing.push(photo);
+    photosByPlaceId.set(photo.placeId, existing);
+  }
+
+  return photosByPlaceId;
+}
+
 export async function insertPhoto(input: {
   placeId: string;
   storagePath: string;

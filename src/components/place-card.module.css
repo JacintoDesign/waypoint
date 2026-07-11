@@ -15,7 +15,6 @@
 }
 
 .photoFrame {
-  aspect-ratio: 4 / 3;
   background-color: var(--color-neutral);
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(42, 37, 33, 0.08);
@@ -80,9 +79,3 @@
   border-radius: var(--rounded-sm);
 }
 
-.caption {
-  margin: var(--spacing-sm) 0 0;
-  font-size: 13px;
-  line-height: 1.4;
-  color: var(--color-muted);
-}
