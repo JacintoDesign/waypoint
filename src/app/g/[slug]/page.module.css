@@ -5,6 +5,35 @@
   padding-block: var(--spacing-lg);
 }
 
+.previewBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-sm);
+  background-color: var(--color-primary-soft);
+}
+
+.previewCopy {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-on-surface);
+}
+
+.previewLink {
+  color: var(--color-primary);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.previewLink:hover {
+  text-decoration: underline;
+}
+
 .coverFrame {
   margin-bottom: var(--spacing-lg);
   border-radius: var(--rounded-sm);

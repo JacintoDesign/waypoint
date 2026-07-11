@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Guide, GuideRow } from "@/types/guide";
+
+const GUIDE_COLUMNS =
+  "id, user_id, title, description, cover_photo_url, is_public, slug" as const;
 
 function mapRowToGuide(row: GuideRow): Guide {
   return {
@@ -13,15 +17,12 @@ function mapRowToGuide(row: GuideRow): Guide {
   };
 }
 
-export async function getPublicGuideBySlug(slug: string): Promise<Guide | null> {
+export async function getGuideBySlug(slug: string): Promise<Guide | null> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("guides")
-    .select(
-      "id, user_id, title, description, cover_photo_url, is_public, slug",
-    )
+    .select(GUIDE_COLUMNS)
     .eq("slug", slug)
-    .eq("is_public", true)
     .maybeSingle();
 
   if (error) {
@@ -31,13 +32,26 @@ export async function getPublicGuideBySlug(slug: string): Promise<Guide | null> 
   return data ? mapRowToGuide(data as GuideRow) : null;
 }
 
+export async function getPublicGuides(): Promise<Guide[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("guides")
+    .select(GUIDE_COLUMNS)
+    .eq("is_public", true)
+    .order("title");
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapRowToGuide(row as GuideRow));
+}
+
 export async function getGuidesByUserId(userId: string): Promise<Guide[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("guides")
-    .select(
-      "id, user_id, title, description, cover_photo_url, is_public, slug",
-    )
+    .select(GUIDE_COLUMNS)
     .eq("user_id", userId)
     .order("title");
 
@@ -55,9 +69,7 @@ export async function getGuideByIdForUser(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("guides")
-    .select(
-      "id, user_id, title, description, cover_photo_url, is_public, slug",
-    )
+    .select(GUIDE_COLUMNS)
     .eq("id", guideId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -87,9 +99,7 @@ export async function createGuide(input: CreateGuideInput): Promise<Guide> {
       cover_photo_url: input.coverPhotoUrl ?? null,
       slug: "pending",
     })
-    .select(
-      "id, user_id, title, description, cover_photo_url, is_public, slug",
-    )
+    .select(GUIDE_COLUMNS)
     .single();
 
   if (error) {
@@ -97,6 +107,58 @@ export async function createGuide(input: CreateGuideInput): Promise<Guide> {
   }
 
   return mapRowToGuide(data as GuideRow);
+}
+
+export type UpdateGuideDetailsInput = {
+  guideId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  slug: string;
+  isPublic: boolean;
+};
+
+export async function updateGuideDetails(
+  input: UpdateGuideDetailsInput,
+): Promise<Guide> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("guides")
+    .update({
+      title: input.title,
+      description: input.description,
+      slug: input.slug,
+      is_public: input.isPublic,
+    })
+    .eq("id", input.guideId)
+    .eq("user_id", input.userId)
+    .select(GUIDE_COLUMNS)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapRowToGuide(data as GuideRow);
+}
+
+export async function isGuideSlugTaken(
+  slug: string,
+  excludeGuideId: string,
+): Promise<boolean> {
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
+    .from("guides")
+    .select("id")
+    .eq("slug", slug)
+    .neq("id", excludeGuideId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data);
 }
 
 export async function updateGuideCoverPhoto(
@@ -110,9 +172,7 @@ export async function updateGuideCoverPhoto(
     .update({ cover_photo_url: coverPhotoUrl })
     .eq("id", guideId)
     .eq("user_id", userId)
-    .select(
-      "id, user_id, title, description, cover_photo_url, is_public, slug",
-    )
+    .select(GUIDE_COLUMNS)
     .single();
 
   if (error) {

@@ -1,15 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-function isAuthoringRoute(pathname: string): boolean {
-  return pathname === "/guides" || pathname.startsWith("/guides/");
+function isProtectedAuthoringRoute(pathname: string): boolean {
+  if (pathname === "/guides/new") {
+    return true;
+  }
+
+  return /^\/guides\/[^/]+/.test(pathname);
 }
 
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  if (isAuthoringRoute(pathname) && !user) {
+  if (isProtectedAuthoringRoute(pathname) && !user) {
     const signInUrl = request.nextUrl.clone();
     signInUrl.pathname = "/sign-in";
     signInUrl.searchParams.set("next", pathname);

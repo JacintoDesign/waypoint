@@ -1,0 +1,14 @@
+.topNav {
+  margin-bottom: var(--spacing-lg);
+}
+
+.link {
+  display: inline-block;
+  color: var(--color-primary);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}

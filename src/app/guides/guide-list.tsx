@@ -5,8 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { GuideListItem } from "@/types/guide";
 import styles from "./guide-list.module.css";
 
+type GuideListVariant = "author" | "public";
+
 type GuideListProps = {
   guides: GuideListItem[];
+  variant?: GuideListVariant;
 };
 
 type ViewMode = "grid" | "list";
@@ -30,7 +33,17 @@ function GuideCover({ guide }: { guide: GuideListItem }) {
   return <div className={styles.coverPlaceholder} aria-hidden="true" />;
 }
 
-function GuideMeta({ guide }: { guide: GuideListItem }) {
+function GuideMeta({
+  guide,
+  variant,
+}: {
+  guide: GuideListItem;
+  variant: GuideListVariant;
+}) {
+  if (variant === "public") {
+    return <p className={styles.meta}>/g/{guide.slug}</p>;
+  }
+
   return (
     <p className={styles.meta}>
       {guide.isPublic ? `Public · /g/${guide.slug}` : "Private"}
@@ -38,7 +51,26 @@ function GuideMeta({ guide }: { guide: GuideListItem }) {
   );
 }
 
-function GuideActions({ guide }: { guide: GuideListItem }) {
+function GuideActions({
+  guide,
+  variant,
+}: {
+  guide: GuideListItem;
+  variant: GuideListVariant;
+}) {
+  if (variant === "public") {
+    return (
+      <div className={styles.actions}>
+        <Link
+          className={`${styles.action} ${styles.actionPrimary}`}
+          href={`/g/${guide.slug}`}
+        >
+          View
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.actions}>
       <Link
@@ -47,16 +79,14 @@ function GuideActions({ guide }: { guide: GuideListItem }) {
       >
         Edit
       </Link>
-      {guide.isPublic ? (
-        <Link className={styles.action} href={`/g/${guide.slug}`}>
-          View
-        </Link>
-      ) : null}
+      <Link className={styles.action} href={`/g/${guide.slug}`}>
+        View
+      </Link>
     </div>
   );
 }
 
-export function GuideList({ guides }: GuideListProps) {
+export function GuideList({ guides, variant = "author" }: GuideListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedView = searchParams.get("view");
@@ -69,6 +99,14 @@ export function GuideList({ guides }: GuideListProps) {
   }
 
   if (guides.length === 0) {
+    if (variant === "public") {
+      return (
+        <div className={styles.emptyState}>
+          <p className={styles.empty}>No public guides available.</p>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.emptyState}>
         <p className={styles.empty}>No guides yet.</p>
@@ -111,39 +149,44 @@ export function GuideList({ guides }: GuideListProps) {
         className={view === "grid" ? styles.grid : styles.list}
         data-view={view}
       >
-        {guides.map((guide) => (
-          <li
-            key={guide.id}
-            className={view === "grid" ? styles.gridCard : styles.listCard}
-          >
-            <Link
-              className={
-                view === "grid" ? styles.gridCoverLink : styles.listCoverLink
-              }
-              href={`/guides/${guide.id}`}
-              tabIndex={-1}
-              aria-hidden="true"
-            >
-              <div
-                className={
-                  view === "grid" ? styles.gridCover : styles.listCover
-                }
-              >
-                <GuideCover guide={guide} />
-              </div>
-            </Link>
+        {guides.map((guide) => {
+          const guideHref =
+            variant === "public" ? `/g/${guide.slug}` : `/guides/${guide.id}`;
 
-            <div className={styles.cardBody}>
-              <h2 className={styles.guideTitle}>
-                <Link className={styles.guideLink} href={`/guides/${guide.id}`}>
-                  {guide.title}
-                </Link>
-              </h2>
-              <GuideMeta guide={guide} />
-              <GuideActions guide={guide} />
-            </div>
-          </li>
-        ))}
+          return (
+            <li
+              key={guide.id}
+              className={view === "grid" ? styles.gridCard : styles.listCard}
+            >
+              <Link
+                className={
+                  view === "grid" ? styles.gridCoverLink : styles.listCoverLink
+                }
+                href={guideHref}
+                tabIndex={-1}
+                aria-hidden="true"
+              >
+                <div
+                  className={
+                    view === "grid" ? styles.gridCover : styles.listCover
+                  }
+                >
+                  <GuideCover guide={guide} />
+                </div>
+              </Link>
+
+              <div className={styles.cardBody}>
+                <h2 className={styles.guideTitle}>
+                  <Link className={styles.guideLink} href={guideHref}>
+                    {guide.title}
+                  </Link>
+                </h2>
+                <GuideMeta guide={guide} variant={variant} />
+                <GuideActions guide={guide} variant={variant} />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </>
   );

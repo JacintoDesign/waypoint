@@ -1,18 +1,5 @@
-import { PLACE_PHOTOS_BUCKET, validateImageFile } from "@/lib/place-photos";
+import { PLACE_PHOTOS_BUCKET, photoFileContentType, photoFileExtension, validateImageFile } from "@/lib/place-photos";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-
-function extensionForMime(type: string): string {
-  switch (type) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    default:
-      return "jpg";
-  }
-}
 
 export function validatePlaceImageFile(file: File): string | null {
   return validateImageFile(file, "Photo");
@@ -29,14 +16,14 @@ export async function uploadPlacePhoto(
   }
 
   const supabase = createSupabaseServiceClient();
-  const extension = extensionForMime(file.type);
+  const extension = photoFileExtension(file);
   const storagePath = `${guideId}/${placeId}/${crypto.randomUUID()}.${extension}`;
   const bytes = Buffer.from(await file.arrayBuffer());
 
   const { error } = await supabase.storage
     .from(PLACE_PHOTOS_BUCKET)
     .upload(storagePath, bytes, {
-      contentType: file.type,
+      contentType: photoFileContentType(file),
       upsert: false,
     });
 

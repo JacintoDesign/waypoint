@@ -16,7 +16,81 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
 ]);
+
+const ALLOWED_IMAGE_EXTENSIONS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".heic",
+  ".heif",
+]);
+
+/**
+ * Android Chrome's image-only picker strips GPS EXIF for privacy. Including a
+ * non-image MIME type nudges the system file picker, which preserves location.
+ */
+export const PHOTO_FILE_INPUT_ACCEPT =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,text/plain,application/octet-stream";
+
+function extensionForFileName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot).toLowerCase();
+}
+
+export function photoFileExtension(file: File): string {
+  switch (file.type) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    case "image/heic":
+    case "image/heif":
+      return "heic";
+    default:
+      break;
+  }
+
+  const fromName = extensionForFileName(file.name);
+  if (fromName === ".png") return "png";
+  if (fromName === ".webp") return "webp";
+  if (fromName === ".heic" || fromName === ".heif") return "heic";
+  return "jpg";
+}
+
+export function photoFileContentType(file: File): string {
+  if (file.type && ALLOWED_IMAGE_TYPES.has(file.type)) {
+    return file.type === "image/heif" ? "image/heic" : file.type;
+  }
+
+  switch (photoFileExtension(file)) {
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "heic":
+      return "image/heic";
+    default:
+      return "image/jpeg";
+  }
+}
+
+export function isAllowedPhotoFile(file: File): boolean {
+  if (ALLOWED_IMAGE_TYPES.has(file.type)) {
+    return true;
+  }
+
+  return ALLOWED_IMAGE_EXTENSIONS.has(extensionForFileName(file.name));
+}
+
+export function allowedPhotoFormatsLabel(): string {
+  return "JPEG, PNG, WebP, or HEIC";
+}
 
 export function maxImageSizeLabel(): string {
   return `${MAX_IMAGE_BYTES / (1024 * 1024)} MB`;
@@ -57,8 +131,8 @@ export function validateImageFile(
   file: File,
   label: "Cover photo" | "Photo",
 ): string | null {
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    return `${label} must be a JPEG, PNG, or WebP image.`;
+  if (!isAllowedPhotoFile(file)) {
+    return `${label} must be a ${allowedPhotoFormatsLabel()} image.`;
   }
 
   if (file.size > MAX_IMAGE_BYTES) {

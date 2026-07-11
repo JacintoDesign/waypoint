@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CoverPhotoEditor } from "@/app/guides/[guideId]/cover-photo-editor";
 import { GuideEditor } from "@/app/guides/[guideId]/guide-editor";
+import { PublishEditor } from "@/app/guides/[guideId]/publish-editor";
 import { requireAuthor } from "@/lib/auth";
 import { resolveCoverPhotoSrc } from "@/lib/guide-covers";
 import { getGuideByIdForUser } from "@/queries/guides";
@@ -77,11 +78,9 @@ export default async function GuideEditorPage({
         <Link className={styles.back} href="/guides">
           All guides
         </Link>
-        <h1 className={styles.title}>{guide.title}</h1>
-        {guide.description ? (
-          <p className={styles.description}>{guide.description}</p>
-        ) : null}
       </header>
+
+      <PublishEditor guide={guide} />
 
       <CoverPhotoEditor
         guideId={guide.id}

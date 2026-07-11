@@ -2,11 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthor } from "@/lib/auth";
+import {
+  isValidGuideSlug,
+  normalizeGuideSlug,
+} from "@/lib/guide-slug";
 import { uploadGuideCoverPhoto, validateCoverImageFile } from "@/lib/guide-covers";
-import { getGuideByIdForUser, updateGuideCoverPhoto } from "@/queries/guides";
+import {
+  getGuideByIdForUser,
+  isGuideSlugTaken,
+  updateGuideCoverPhoto,
+  updateGuideDetails,
+} from "@/queries/guides";
 import { getAccessiblePhotoById } from "@/queries/photos";
 import { getPlacesByGuideId } from "@/queries/places";
 import type { CoverPhotoActionState } from "@/app/guides/[guideId]/cover-photo-state";
+import type { PublishActionState } from "@/app/guides/[guideId]/publish-state";
 
 function readGuideId(formData: FormData): string | null {
   const guideId = formData.get("guideId");
@@ -28,12 +38,94 @@ async function assertGuideOwner(guideId: string) {
   return { user, guide };
 }
 
-function revalidateGuidePaths(guideId: string, slug: string, isPublic: boolean) {
+function revalidateGuidePaths(
+  guideId: string,
+  slug: string,
+  isPublic: boolean,
+  previousSlug?: string,
+) {
   revalidatePath("/guides");
   revalidatePath(`/guides/${guideId}`);
+  revalidatePath(`/g/${slug}`);
 
-  if (isPublic) {
-    revalidatePath(`/g/${slug}`);
+  if (previousSlug && previousSlug !== slug) {
+    revalidatePath(`/g/${previousSlug}`);
+  }
+
+  if (!isPublic && previousSlug) {
+    revalidatePath(`/g/${previousSlug}`);
+  }
+}
+
+export async function updateGuidePublishAction(
+  _previousState: PublishActionState,
+  formData: FormData,
+): Promise<PublishActionState> {
+  const guideId = readGuideId(formData);
+  if (!guideId) {
+    return { error: "Guide not found.", success: null };
+  }
+
+  let guideContext;
+
+  try {
+    guideContext = await assertGuideOwner(guideId);
+  } catch {
+    return { error: "Guide not found.", success: null };
+  }
+
+  const title = formData.get("title");
+  if (typeof title !== "string" || title.trim() === "") {
+    return { error: "Title is required.", success: null };
+  }
+
+  const description = formData.get("description");
+  const slugInput = formData.get("slug");
+  if (typeof slugInput !== "string" || slugInput.trim() === "") {
+    return { error: "Slug is required.", success: null };
+  }
+
+  const slug = normalizeGuideSlug(slugInput);
+  if (!isValidGuideSlug(slug)) {
+    return {
+      error: "Slug must use lowercase letters, numbers, and hyphens only.",
+      success: null,
+    };
+  }
+
+  const isPublic = formData.get("isPublic") === "true";
+
+  try {
+    if (await isGuideSlugTaken(slug, guideId)) {
+      return { error: "That slug is already taken. Choose another.", success: null };
+    }
+
+    const guide = await updateGuideDetails({
+      guideId,
+      userId: guideContext.user.id,
+      title: title.trim(),
+      description:
+        typeof description === "string" && description.trim()
+          ? description.trim()
+          : null,
+      slug,
+      isPublic,
+    });
+
+    revalidateGuidePaths(
+      guide.id,
+      guide.slug,
+      guide.isPublic,
+      guideContext.guide.slug,
+    );
+
+    const statusMessage = guide.isPublic
+      ? "Guide published."
+      : "Guide saved as private.";
+
+    return { error: null, success: statusMessage };
+  } catch {
+    return { error: "Could not save guide settings.", success: null };
   }
 }
 

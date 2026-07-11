@@ -54,6 +54,8 @@ export function GuideViewer({ places }: GuideViewerProps) {
           places={places}
           activePlaceId={highlightedPlaceId}
           onPinClick={handlePinClick}
+          autoFitViewport={false}
+          globeArrival
         />
       </div>
     </div>

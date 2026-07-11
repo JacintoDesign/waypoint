@@ -197,6 +197,16 @@
   gap: var(--spacing-sm);
 }
 
+.draftLocationActions {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.locationAssist {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
 .photosSection {
   display: grid;
   gap: var(--spacing-sm);

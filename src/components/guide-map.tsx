@@ -10,12 +10,19 @@ import {
   getMapViewportFromPlaces,
   toLngLat,
   viewportKey,
+  type MapViewport,
 } from "@/lib/map-viewport";
+import { isValidPlaceLocation } from "@/lib/place-location";
 import styles from "./guide-map.module.css";
 
 const WAYPOINT_MAP_STYLE_URL = "/styles/waypoint-style.json";
 const FIT_BOUNDS_PADDING = 48;
 const FIT_BOUNDS_MAX_ZOOM = 15;
+const GLOBE_ARRIVAL_FLY_TO = {
+  speed: 0.8,
+  curve: 1.4,
+  essential: true,
+} as const;
 
 const maplibreglModulePromise = import("maplibre-gl");
 
@@ -35,6 +42,7 @@ export type GuideMapProps = {
   onDraftPinClick?: (draftId: string) => void;
   onMapClick?: (location: PlaceLocation) => void;
   autoFitViewport?: boolean;
+  globeArrival?: boolean;
   className?: string;
 };
 
@@ -42,6 +50,47 @@ type MarkerEntry = {
   marker: Marker;
   element: HTMLDivElement;
 };
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function isMapContainerFullyVisible(entry: IntersectionObserverEntry): boolean {
+  if (entry.intersectionRatio >= 1) {
+    return true;
+  }
+
+  const { height, top, bottom } = entry.boundingClientRect;
+  const viewportHeight = entry.rootBounds?.height ?? window.innerHeight;
+
+  if (height > viewportHeight) {
+    return top <= 0 && bottom >= viewportHeight;
+  }
+
+  return false;
+}
+
+function getFlyToCamera(map: MaplibreMap, viewport: MapViewport) {
+  if (viewport.kind === "bounds") {
+    const camera = map.cameraForBounds(viewport.bounds, {
+      padding: FIT_BOUNDS_PADDING,
+      maxZoom: FIT_BOUNDS_MAX_ZOOM,
+    });
+
+    if (camera) {
+      return camera;
+    }
+  }
+
+  return {
+    center: viewport.center,
+    zoom: viewport.zoom,
+  };
+}
 
 function applyViewport(
   map: MaplibreMap,
@@ -75,10 +124,13 @@ export function GuideMap({
   onDraftPinClick,
   onMapClick,
   autoFitViewport = true,
+  globeArrival = false,
   className,
 }: GuideMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
+  const globeArrivalObserverRef = useRef<IntersectionObserver | null>(null);
+  const globeArrivalCompletedRef = useRef(false);
   const maplibreglRef = useRef<Awaited<typeof maplibreglModulePromise>["default"] | null>(
     null,
   );
@@ -144,7 +196,59 @@ export function GuideMap({
           ...places,
           ...draftPins.map((pin) => ({ location: pin.location })),
         ]);
-        if (autoFitViewport) {
+
+        if (globeArrival) {
+          if (prefersReducedMotion()) {
+            applyViewport(map, places, draftPins);
+          } else {
+            map.setProjection({ type: "globe" });
+
+            const containerElement = containerRef.current;
+            if (!containerElement) {
+              return;
+            }
+
+            const runGlobeArrival = () => {
+              if (cancelled || globeArrivalCompletedRef.current) {
+                return;
+              }
+
+              globeArrivalCompletedRef.current = true;
+
+              const viewport = getMapViewportFromPlaces([
+                ...places,
+                ...draftPins.map((pin) => ({ location: pin.location })),
+              ]);
+
+              map.once("moveend", () => {
+                if (cancelled) {
+                  return;
+                }
+
+                map.setProjection({ type: "mercator" });
+              });
+
+              map.flyTo({
+                ...getFlyToCamera(map, viewport),
+                ...GLOBE_ARRIVAL_FLY_TO,
+              });
+            };
+
+            const observer = new IntersectionObserver(
+              ([entry]) => {
+                if (entry && isMapContainerFullyVisible(entry)) {
+                  observer.disconnect();
+                  globeArrivalObserverRef.current = null;
+                  runGlobeArrival();
+                }
+              },
+              { threshold: [0, 0.25, 0.5, 0.75, 1] },
+            );
+
+            globeArrivalObserverRef.current = observer;
+            observer.observe(containerElement);
+          }
+        } else if (autoFitViewport) {
           applyViewport(map, places, draftPins);
         }
       });
@@ -161,6 +265,9 @@ export function GuideMap({
 
     return () => {
       cancelled = true;
+      globeArrivalObserverRef.current?.disconnect();
+      globeArrivalObserverRef.current = null;
+      globeArrivalCompletedRef.current = false;
       for (const { marker } of markersByIdRef.current.values()) {
         marker.remove();
       }
@@ -203,7 +310,7 @@ export function GuideMap({
   }, [places, activePlaceId, draftPins]);
 
   useEffect(() => {
-    if (!autoFitViewport) {
+    if (!autoFitViewport || globeArrival) {
       return;
     }
 
@@ -222,7 +329,7 @@ export function GuideMap({
 
     lastViewportKeyRef.current = nextViewportKey;
     applyViewport(map, places, draftPins);
-  }, [places, draftPins, autoFitViewport]);
+  }, [places, draftPins, autoFitViewport, globeArrival]);
 
   return (
     <div
@@ -301,6 +408,10 @@ function syncDraftMarkers(
   }
 
   for (const draftPin of draftPins) {
+    if (!isValidPlaceLocation(draftPin.location)) {
+      continue;
+    }
+
     const existing = markersById.current.get(draftPin.id);
 
     if (existing) {

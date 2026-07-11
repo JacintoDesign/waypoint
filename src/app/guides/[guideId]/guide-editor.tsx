@@ -20,11 +20,17 @@ import {
 import { placeActionInitialState } from "@/app/guides/[guideId]/place-state";
 import { GuideMap, type GuideMapDraftPin } from "@/components/guide-map";
 import { SignedPhoto } from "@/components/signed-photo";
-import { extractGpsFromFile } from "@/lib/exif-gps";
+import { getCurrentPlaceLocation } from "@/lib/browser-geolocation";
+import { isValidPlaceLocation } from "@/lib/place-location";
 import {
   guidePhotoUploadLimitMessage,
+  PHOTO_FILE_INPUT_ACCEPT,
   validatePhotoUploadBatch,
 } from "@/lib/place-photos";
+import {
+  resolvePhotoLocation,
+  type PhotoLocationSuggestion,
+} from "@/lib/resolve-photo-location";
 import type { Place, PlaceLocation } from "@/types/place";
 import type { SignedPlacePhoto } from "@/types/photo";
 import styles from "./guide-editor.module.css";
@@ -124,10 +130,12 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
   const [photoPlaceDrafts, setPhotoPlaceDrafts] = useState<PhotoPlaceDraft[]>([]);
   const [activePhotoDraftId, setActivePhotoDraftId] = useState<string | null>(null);
   const [suggestedLocation, setSuggestedLocation] =
-    useState<PlaceLocation | null>(null);
+    useState<PhotoLocationSuggestion | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [uploadLimitError, setUploadLimitError] = useState<string | null>(null);
+  const [locationAssistError, setLocationAssistError] = useState<string | null>(null);
   const [isUploadingPending, startUploadPending] = useTransition();
+  const [isResolvingLocation, startResolveLocation] = useTransition();
 
   const [saveState, saveAction, savePending] = useActionState(
     savePlaceAction,
@@ -158,7 +166,8 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
     uploadPending ||
     deletePhotoPending ||
     reorderPending ||
-    isUploadingPending;
+    isUploadingPending ||
+    isResolvingLocation;
 
   const activePlaceId = selectedPlaceId ?? editingPlaceId ?? undefined;
 
@@ -168,12 +177,12 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
 
   const mapDraftPins = useMemo((): GuideMapDraftPin[] => {
     const pins: GuideMapDraftPin[] = visiblePhotoDrafts.flatMap((draft) =>
-      draft.location
+      isValidPlaceLocation(draft.location)
         ? [{ id: draft.id, location: draft.location, label: draft.name }]
         : [],
     );
 
-    if (isFormOpen && formState.location) {
+    if (isFormOpen && isValidPlaceLocation(formState.location)) {
       pins.push({
         id: activePhotoDraftId ?? "__form__",
         location: formState.location,
@@ -323,41 +332,46 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
     [activePhotoDraftId, isFormOpen, openPhotoDraft, photoPlaceDrafts],
   );
 
-  const offerGpsSuggestion = useCallback(async (file: File) => {
-    const gps = await extractGpsFromFile(file);
-    if (gps) {
-      setSuggestedLocation(gps);
+  const offerLocationSuggestion = useCallback(async (file: File) => {
+    const suggestion = await resolvePhotoLocation(file);
+    if (suggestion) {
+      setSuggestedLocation(suggestion);
     }
   }, []);
 
-  const handlePhotoFirstUpload = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) {
-      return;
-    }
+  const handlePhotoFirstUpload = useCallback(
+    (files: FileList | null) => {
+      if (!files || files.length === 0) {
+        return;
+      }
 
-    const selected = Array.from(files);
-    const batchError = validatePhotoUploadBatch(selected);
-    if (batchError) {
-      setUploadLimitError(batchError);
-      return;
-    }
+      const selected = Array.from(files);
+      const batchError = validatePhotoUploadBatch(selected);
+      if (batchError) {
+        setUploadLimitError(batchError);
+        return;
+      }
 
-    setUploadLimitError(null);
-    const newDrafts: PhotoPlaceDraft[] = [];
+      setUploadLimitError(null);
+      startResolveLocation(async () => {
+        const newDrafts: PhotoPlaceDraft[] = [];
 
-    for (const file of selected) {
-      const gps = await extractGpsFromFile(file);
-      newDrafts.push({
-        id: crypto.randomUUID(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-        location: gps,
-        name: defaultNameFromFile(file) || "Untitled place",
+        for (const file of selected) {
+          const suggestion = await resolvePhotoLocation(file);
+          newDrafts.push({
+            id: crypto.randomUUID(),
+            file,
+            previewUrl: URL.createObjectURL(file),
+            location: suggestion?.location ?? null,
+            name: defaultNameFromFile(file) || "Untitled place",
+          });
+        }
+
+        setPhotoPlaceDrafts((current) => [...current, ...newDrafts]);
       });
-    }
-
-    setPhotoPlaceDrafts((current) => [...current, ...newDrafts]);
-  }, []);
+    },
+    [startResolveLocation],
+  );
 
   const handlePhotoFiles = useCallback(
     async (files: FileList | null) => {
@@ -366,7 +380,7 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
       }
 
       const file = files[0];
-      await offerGpsSuggestion(file);
+      await offerLocationSuggestion(file);
 
       if (mode === "edit" && editingPlaceId) {
         const batchError = validatePhotoUploadBatch([file]);
@@ -403,7 +417,7 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
         },
       ]);
     },
-    [editingPlaceId, guideId, mode, offerGpsSuggestion, pendingPhotos, uploadAction],
+    [editingPlaceId, guideId, mode, offerLocationSuggestion, pendingPhotos, uploadAction],
   );
 
   const uploadPendingPhotos = useCallback(
@@ -532,10 +546,45 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
 
     setFormState((current) => ({
       ...current,
-      location: suggestedLocation,
+      location: suggestedLocation.location,
     }));
     setSuggestedLocation(null);
+    setLocationAssistError(null);
   };
+
+  const assignCurrentLocationToForm = useCallback(() => {
+    startResolveLocation(async () => {
+      setLocationAssistError(null);
+      const location = await getCurrentPlaceLocation();
+      if (!location) {
+        setLocationAssistError(
+          "Could not read your current location. Allow location access in the browser, or drop the pin on the map.",
+        );
+        return;
+      }
+
+      setFormState((current) => ({ ...current, location }));
+    });
+  }, []);
+
+  const assignCurrentLocationToDraft = useCallback((draftId: string) => {
+    startResolveLocation(async () => {
+      setLocationAssistError(null);
+      const location = await getCurrentPlaceLocation();
+      if (!location) {
+        setLocationAssistError(
+          "Could not read your current location. Allow location access in the browser, or set the pin when editing.",
+        );
+        return;
+      }
+
+      setPhotoPlaceDrafts((current) =>
+        current.map((draft) =>
+          draft.id === draftId ? { ...draft, location } : draft,
+        ),
+      );
+    });
+  }, []);
 
   const dismissSuggestedLocation = () => {
     setSuggestedLocation(null);
@@ -577,6 +626,7 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
 
   const feedback =
     uploadLimitError ??
+    locationAssistError ??
     saveState.error ??
     deleteState.error ??
     uploadState.error ??
@@ -604,8 +654,9 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
         <section className={styles.photoImport}>
           <h3 className={styles.photoImportTitle}>From photos</h3>
           <p className={styles.photoImportCopy}>
-            Upload one or more photos. Pins are placed from each photo&apos;s GPS
-            data when available.
+            Upload one or more photos. Pins are placed from GPS or filename hints
+            when available. On Android, choose Browse or Files — not Photos — so
+            location data is preserved.
           </p>
           <button
             className={styles.button}
@@ -619,10 +670,10 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
             ref={photoFirstInputRef}
             className={styles.hiddenInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={PHOTO_FILE_INPUT_ACCEPT}
             multiple
             onChange={(event) => {
-              void handlePhotoFirstUpload(event.target.files);
+              handlePhotoFirstUpload(event.target.files);
               event.target.value = "";
             }}
             disabled={isPending}
@@ -646,9 +697,19 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
                       {draft.location.lat.toFixed(5)}, {draft.location.lng.toFixed(5)}
                     </p>
                   ) : (
-                    <p className={styles.helper}>
-                      No GPS in this photo — set the location when editing.
-                    </p>
+                    <div className={styles.draftLocationActions}>
+                      <p className={styles.helper}>
+                        No GPS in this photo — set the location when editing.
+                      </p>
+                      <button
+                        className={styles.textButton}
+                        type="button"
+                        onClick={() => assignCurrentLocationToDraft(draft.id)}
+                        disabled={isPending}
+                      >
+                        Use current location
+                      </button>
+                    </div>
                   )}
                   <div className={styles.draftActions}>
                     <button
@@ -702,11 +763,21 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
             </div>
 
             {!formState.location ? (
-              <p className={styles.helper}>
-                {activePhotoDraftId
-                  ? "This photo has no GPS data. Click the map to set the location."
-                  : "Click the map to set this place's location."}
-              </p>
+              <div className={styles.locationAssist}>
+                <p className={styles.helper}>
+                  {activePhotoDraftId
+                    ? "This photo has no GPS data. Click the map, or use your current location if you are at the place."
+                    : "Click the map to set this place's location, or use your current location if you are there now."}
+                </p>
+                <button
+                  className={styles.button}
+                  type="button"
+                  onClick={assignCurrentLocationToForm}
+                  disabled={isPending}
+                >
+                  Use current location
+                </button>
+              </div>
             ) : (
               <p className={styles.coords}>
                 {formState.location.lat.toFixed(5)}, {formState.location.lng.toFixed(5)}
@@ -716,9 +787,21 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
             {suggestedLocation && !activePhotoDraftId ? (
               <div className={styles.suggestion}>
                 <p className={styles.suggestionCopy}>
-                  This photo includes GPS coordinates (
-                  {suggestedLocation.lat.toFixed(5)}, {suggestedLocation.lng.toFixed(5)}
-                  ). Use as the place location?
+                  {suggestedLocation.source === "filename" ? (
+                    <>
+                      Filename &ldquo;{suggestedLocation.query}&rdquo; suggests (
+                      {suggestedLocation.location.lat.toFixed(5)},{" "}
+                      {suggestedLocation.location.lng.toFixed(5)}). Use as the place
+                      location?
+                    </>
+                  ) : (
+                    <>
+                      This photo includes GPS coordinates (
+                      {suggestedLocation.location.lat.toFixed(5)},{" "}
+                      {suggestedLocation.location.lng.toFixed(5)}). Use as the place
+                      location?
+                    </>
+                  )}
                 </p>
                 <div className={styles.suggestionActions}>
                   <button
@@ -835,7 +918,7 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
                   ref={photoInputRef}
                   className={styles.hiddenInput}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept={PHOTO_FILE_INPUT_ACCEPT}
                   onChange={(event) => {
                     void handlePhotoFiles(event.target.files);
                     event.target.value = "";

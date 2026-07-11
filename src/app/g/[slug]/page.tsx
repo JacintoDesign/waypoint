@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GuideViewer } from "@/components/guide-viewer";
+import { PublicBrowseNav } from "@/components/public-browse-nav";
+import { getSessionUser } from "@/lib/auth";
 import { resolveCoverPhotoSrc } from "@/lib/guide-covers";
-import { getPublicGuideBySlug } from "@/queries/guides";
+import { getGuideBySlug } from "@/queries/guides";
 import { getPrimarySignedPhotosByPlaceIds } from "@/queries/photos";
 import { getPlacesByGuideId } from "@/queries/places";
 import styles from "./page.module.css";
@@ -14,11 +17,13 @@ type PublicGuidePageProps = {
 
 export default async function PublicGuidePage({ params }: PublicGuidePageProps) {
   const { slug } = await params;
-  const guide = await getPublicGuideBySlug(slug);
+  const [guide, user] = await Promise.all([getGuideBySlug(slug), getSessionUser()]);
 
   if (!guide) {
     notFound();
   }
+
+  const isOwnerPreview = !guide.isPublic && user?.id === guide.userId;
 
   const places = await getPlacesByGuideId(guide.id);
   const photosByPlaceId = places.length
@@ -38,6 +43,19 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
 
   return (
     <main className={styles.page}>
+      {!user ? <PublicBrowseNav /> : null}
+
+      {isOwnerPreview ? (
+        <div className={styles.previewBanner}>
+          <p className={styles.previewCopy}>
+            This guide is private. Only you can see this preview.
+          </p>
+          <Link className={styles.previewLink} href={`/guides/${guide.id}`}>
+            Edit guide
+          </Link>
+        </div>
+      ) : null}
+
       {coverPhotoSrc ? (
         <div className={styles.coverFrame}>
           <img
