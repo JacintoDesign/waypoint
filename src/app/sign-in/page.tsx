@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SignInForm } from "@/app/sign-in/sign-in-form";
 import { PublicBrowseNav } from "@/components/public-browse-nav";
 import styles from "./page.module.css";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Sign in to create and edit your travel guides on Waypoint.",
+  robots: { index: false, follow: false },
+};
 
 export default function SignInPage() {
   return (

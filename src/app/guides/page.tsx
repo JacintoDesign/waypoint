@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { SignOutButton } from "@/app/guides/sign-out-button";
@@ -7,6 +8,11 @@ import { resolveCoverPhotoSrcs } from "@/lib/guide-covers";
 import { getGuidesByUserId, getPublicGuides } from "@/queries/guides";
 import type { GuideListItem } from "@/types/guide";
 import styles from "./page.module.css";
+
+export const metadata: Metadata = {
+  title: "Guides",
+  description: "Browse public travel guides on Waypoint.",
+};
 
 async function buildGuideListItems(
   guides: Awaited<ReturnType<typeof getPublicGuides>>,
