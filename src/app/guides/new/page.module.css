@@ -1,0 +1,130 @@
+.page {
+  max-width: var(--spacing-max-width);
+  margin-inline: auto;
+  padding: var(--spacing-gutter);
+  padding-block: var(--spacing-xl);
+}
+
+.header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  margin: var(--spacing-sm) 0 0;
+  color: var(--color-muted);
+}
+
+.form {
+  display: grid;
+  gap: var(--spacing-lg);
+  max-width: 40rem;
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-md);
+  background-color: var(--color-surface);
+}
+
+.field {
+  display: grid;
+  gap: var(--spacing-sm);
+}
+
+.label {
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-sm);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  font: inherit;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-on-surface);
+}
+
+.fileInput {
+  font: inherit;
+  color: var(--color-on-surface);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-sm);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

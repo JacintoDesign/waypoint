@@ -1,12 +1,25 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { SignOutButton } from "@/app/guides/sign-out-button";
+import { GuideList } from "@/app/guides/guide-list";
 import { requireAuthor } from "@/lib/auth";
+import { resolveCoverPhotoSrcs } from "@/lib/guide-covers";
 import { getGuidesByUserId } from "@/queries/guides";
+import type { GuideListItem } from "@/types/guide";
 import styles from "./page.module.css";
 
 export default async function GuidesPage() {
   const user = await requireAuthor();
   const guides = await getGuidesByUserId(user.id);
+  const coverSrcByValue = await resolveCoverPhotoSrcs(
+    guides.map((guide) => guide.coverPhotoUrl),
+  );
+  const guideItems: GuideListItem[] = guides.map((guide) => ({
+    ...guide,
+    coverPhotoSrc: guide.coverPhotoUrl
+      ? (coverSrcByValue.get(guide.coverPhotoUrl) ?? null)
+      : null,
+  }));
 
   return (
     <main className={styles.page}>
@@ -15,42 +28,17 @@ export default async function GuidesPage() {
           <h1 className={styles.title}>Your guides</h1>
           <p className={styles.lede}>Edit places, photos, and notes for each guide.</p>
         </div>
-        <SignOutButton />
+        <div className={styles.headerActions}>
+          <Link className={`${styles.headerButton} ${styles.headerButtonPrimary}`} href="/guides/new">
+            New guide
+          </Link>
+          <SignOutButton />
+        </div>
       </header>
 
-      {guides.length === 0 ? (
-        <p className={styles.empty}>No guides yet.</p>
-      ) : (
-        <ul className={styles.list}>
-          {guides.map((guide) => (
-            <li key={guide.id} className={styles.card}>
-              <div>
-                <h2 className={styles.guideTitle}>
-                  <Link className={styles.guideLink} href={`/guides/${guide.id}`}>
-                    {guide.title}
-                  </Link>
-                </h2>
-                <p className={styles.meta}>
-                  {guide.isPublic ? `Public · /g/${guide.slug}` : "Private"}
-                </p>
-              </div>
-              <div className={styles.actions}>
-                <Link
-                  className={`${styles.action} ${styles.actionPrimary}`}
-                  href={`/guides/${guide.id}`}
-                >
-                  Edit
-                </Link>
-                {guide.isPublic ? (
-                  <Link className={styles.action} href={`/g/${guide.slug}`}>
-                    View
-                  </Link>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Suspense fallback={<p className={styles.empty}>Loading guides…</p>}>
+        <GuideList guides={guideItems} />
+      </Suspense>
     </main>
   );
 }

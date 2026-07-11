@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { GuideViewer } from "@/components/guide-viewer";
+import { resolveCoverPhotoSrc } from "@/lib/guide-covers";
 import { getPublicGuideBySlug } from "@/queries/guides";
 import { getPrimarySignedPhotosByPlaceIds } from "@/queries/photos";
 import { getPlacesByGuideId } from "@/queries/places";
@@ -33,14 +34,27 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
     photo: photosByPlaceId.get(place.id),
   }));
 
+  const coverPhotoSrc = await resolveCoverPhotoSrc(guide.coverPhotoUrl);
+
   return (
     <main className={styles.page}>
+      {coverPhotoSrc ? (
+        <div className={styles.coverFrame}>
+          <img
+            className={styles.coverImage}
+            src={coverPhotoSrc}
+            alt=""
+          />
+        </div>
+      ) : null}
+
       <header className={styles.header}>
         <h1 className={styles.title}>{guide.title}</h1>
         {guide.description ? (
           <p className={styles.description}>{guide.description}</p>
         ) : null}
       </header>
+
       <GuideViewer places={placesWithPhotos} />
     </main>
   );

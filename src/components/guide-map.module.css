@@ -19,3 +19,8 @@
   width: 36px;
   height: 36px;
 }
+
+.pinDraft {
+  opacity: 0.75;
+  border-style: dashed;
+}

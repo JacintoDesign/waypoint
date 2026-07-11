@@ -8,6 +8,20 @@ export type Guide = {
   slug: string;
 };
 
+export type GuideListItem = Guide & {
+  coverPhotoSrc: string | null;
+};
+
+export type GuideCoverPhotoOption = {
+  id: string;
+  placeName: string;
+  caption: string | null;
+  storagePath: string;
+  url: string;
+  expiresAt: number;
+  isSelected: boolean;
+};
+
 export type GuideRow = {
   id: string;
   user_id: string;

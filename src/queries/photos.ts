@@ -49,6 +49,12 @@ async function signStoragePaths(
   return signedUrls;
 }
 
+export async function signPhotoStoragePaths(
+  storagePaths: string[],
+): Promise<Map<string, string>> {
+  return signStoragePaths(storagePaths);
+}
+
 export async function getPhotosByPlaceIds(
   placeIds: string[],
 ): Promise<PhotoRow[]> {
@@ -107,6 +113,68 @@ export async function getPrimarySignedPhotosByPlaceIds(
   }
 
   return primaryByPlaceId;
+}
+
+export async function insertPhoto(input: {
+  placeId: string;
+  storagePath: string;
+  caption?: string | null;
+  sortOrder: number;
+}): Promise<PhotoRow> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("photos")
+    .insert({
+      place_id: input.placeId,
+      storage_path: input.storagePath,
+      caption: input.caption ?? null,
+      sort_order: input.sortOrder,
+    })
+    .select("id, place_id, storage_path, caption, sort_order")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as PhotoRow;
+}
+
+export async function deletePhotoById(photoId: string): Promise<PhotoRow | null> {
+  const row = await getAccessiblePhotoById(photoId);
+  if (!row) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("photos").delete().eq("id", photoId);
+
+  if (error) {
+    throw error;
+  }
+
+  return row;
+}
+
+export async function updatePhotoSortOrders(
+  updates: { id: string; sortOrder: number }[],
+): Promise<void> {
+  if (updates.length === 0) {
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  for (const update of updates) {
+    const { error } = await supabase
+      .from("photos")
+      .update({ sort_order: update.sortOrder })
+      .eq("id", update.id);
+
+    if (error) {
+      throw error;
+    }
+  }
 }
 
 export async function getAccessiblePhotoById(

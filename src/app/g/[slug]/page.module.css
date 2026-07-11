@@ -5,6 +5,21 @@
   padding-block: var(--spacing-lg);
 }
 
+.coverFrame {
+  margin-bottom: var(--spacing-lg);
+  border-radius: var(--rounded-sm);
+  overflow: hidden;
+  background-color: var(--color-neutral);
+  box-shadow: 0 2px 8px rgba(42, 37, 33, 0.08);
+}
+
+.coverImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
 .header {
   margin-bottom: var(--spacing-lg);
 }

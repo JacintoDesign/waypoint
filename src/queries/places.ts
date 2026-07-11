@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { BoundsParams } from "@/lib/bounds";
+import { toGeographyPoint } from "@/lib/geography";
 import { parseEwkbPoint } from "@/lib/parse-ewkb-point";
 import type {
   NearbyPlace,
@@ -108,6 +109,121 @@ export async function getPlacesByGuideId(guideId: string): Promise<Place[]> {
   return ((data ?? []) as PlaceByGuideRow[]).map((row) =>
     mapBasePlaceFields(row, parseEwkbPoint(row.location)),
   );
+}
+
+export type CreatePlaceInput = {
+  guideId: string;
+  name: string;
+  notes?: string | null;
+  category?: string | null;
+  rating?: number | null;
+  location: Place["location"];
+  sortOrder: number;
+};
+
+export type UpdatePlaceInput = {
+  placeId: string;
+  guideId: string;
+  name: string;
+  notes?: string | null;
+  category?: string | null;
+  rating?: number | null;
+  location: Place["location"];
+};
+
+export async function getPlaceByIdForGuide(
+  placeId: string,
+  guideId: string,
+): Promise<Place | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("places")
+    .select(
+      "id, guide_id, name, address, notes, rating, category, sort_order, location",
+    )
+    .eq("id", placeId)
+    .eq("guide_id", guideId)
+    .not("location", "is", null)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const row = data as PlaceByGuideRow;
+  return mapBasePlaceFields(row, parseEwkbPoint(row.location));
+}
+
+export async function createPlace(input: CreatePlaceInput): Promise<Place> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("places")
+    .insert({
+      guide_id: input.guideId,
+      name: input.name,
+      notes: input.notes ?? null,
+      category: input.category ?? null,
+      rating: input.rating ?? null,
+      sort_order: input.sortOrder,
+      location: toGeographyPoint(input.location),
+    })
+    .select(
+      "id, guide_id, name, address, notes, rating, category, sort_order, location",
+    )
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const row = data as PlaceByGuideRow;
+  return mapBasePlaceFields(row, parseEwkbPoint(row.location));
+}
+
+export async function updatePlace(input: UpdatePlaceInput): Promise<Place> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("places")
+    .update({
+      name: input.name,
+      notes: input.notes ?? null,
+      category: input.category ?? null,
+      rating: input.rating ?? null,
+      location: toGeographyPoint(input.location),
+    })
+    .eq("id", input.placeId)
+    .eq("guide_id", input.guideId)
+    .select(
+      "id, guide_id, name, address, notes, rating, category, sort_order, location",
+    )
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const row = data as PlaceByGuideRow;
+  return mapBasePlaceFields(row, parseEwkbPoint(row.location));
+}
+
+export async function deletePlace(
+  placeId: string,
+  guideId: string,
+): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("places")
+    .delete()
+    .eq("id", placeId)
+    .eq("guide_id", guideId);
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function getPlacesInBounds(

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Map as MaplibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Place } from "@/types/place";
+import type { Place, PlaceLocation } from "@/types/place";
 import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
@@ -21,10 +21,20 @@ const maplibreglModulePromise = import("maplibre-gl");
 
 export type GuideMapPlace = Pick<Place, "id" | "name" | "location">;
 
+export type GuideMapDraftPin = {
+  id: string;
+  location: PlaceLocation;
+  label?: string;
+};
+
 export type GuideMapProps = {
   places: GuideMapPlace[];
   activePlaceId?: string;
+  draftPins?: GuideMapDraftPin[];
   onPinClick?: (placeId: string) => void;
+  onDraftPinClick?: (draftId: string) => void;
+  onMapClick?: (location: PlaceLocation) => void;
+  autoFitViewport?: boolean;
   className?: string;
 };
 
@@ -33,8 +43,15 @@ type MarkerEntry = {
   element: HTMLDivElement;
 };
 
-function applyViewport(map: MaplibreMap, places: GuideMapPlace[]) {
-  const viewport = getMapViewportFromPlaces(places);
+function applyViewport(
+  map: MaplibreMap,
+  places: GuideMapPlace[],
+  draftPins: GuideMapDraftPin[] = [],
+) {
+  const viewport = getMapViewportFromPlaces([
+    ...places,
+    ...draftPins.map((pin) => ({ location: pin.location })),
+  ]);
 
   if (viewport.kind === "bounds") {
     map.fitBounds(viewport.bounds, {
@@ -53,7 +70,11 @@ function applyViewport(map: MaplibreMap, places: GuideMapPlace[]) {
 export function GuideMap({
   places,
   activePlaceId,
+  draftPins = [],
   onPinClick,
+  onDraftPinClick,
+  onMapClick,
+  autoFitViewport = true,
   className,
 }: GuideMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,9 +83,14 @@ export function GuideMap({
     null,
   );
   const markersByIdRef = useRef<Map<string, MarkerEntry>>(new Map());
+  const draftMarkersByIdRef = useRef<Map<string, MarkerEntry>>(new Map());
   const lastViewportKeyRef = useRef("");
   const onPinClickRef = useRef(onPinClick);
+  const onDraftPinClickRef = useRef(onDraftPinClick);
+  const onMapClickRef = useRef(onMapClick);
   onPinClickRef.current = onPinClick;
+  onDraftPinClickRef.current = onDraftPinClick;
+  onMapClickRef.current = onMapClick;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -107,8 +133,27 @@ export function GuideMap({
           markersByIdRef,
           onPinClickRef,
         );
-        lastViewportKeyRef.current = viewportKey(places);
-        applyViewport(map, places);
+        syncDraftMarkers(
+          map,
+          maplibregl.default,
+          draftPins,
+          draftMarkersByIdRef,
+          onDraftPinClickRef,
+        );
+        lastViewportKeyRef.current = viewportKey([
+          ...places,
+          ...draftPins.map((pin) => ({ location: pin.location })),
+        ]);
+        if (autoFitViewport) {
+          applyViewport(map, places, draftPins);
+        }
+      });
+
+      map.on("click", (event) => {
+        onMapClickRef.current?.({
+          lat: event.lngLat.lat,
+          lng: event.lngLat.lng,
+        });
       });
 
       mapRef.current = map;
@@ -120,6 +165,10 @@ export function GuideMap({
         marker.remove();
       }
       markersByIdRef.current.clear();
+      for (const { marker } of draftMarkersByIdRef.current.values()) {
+        marker.remove();
+      }
+      draftMarkersByIdRef.current.clear();
       mapRef.current?.remove();
       mapRef.current = null;
       maplibreglRef.current = null;
@@ -144,22 +193,36 @@ export function GuideMap({
       markersByIdRef,
       onPinClickRef,
     );
-  }, [places, activePlaceId]);
+    syncDraftMarkers(
+      map,
+      maplibregl,
+      draftPins,
+      draftMarkersByIdRef,
+      onDraftPinClickRef,
+    );
+  }, [places, activePlaceId, draftPins]);
 
   useEffect(() => {
+    if (!autoFitViewport) {
+      return;
+    }
+
     const map = mapRef.current;
     if (!map || !map.loaded()) {
       return;
     }
 
-    const nextViewportKey = viewportKey(places);
+    const nextViewportKey = viewportKey([
+      ...places,
+      ...draftPins.map((pin) => ({ location: pin.location })),
+    ]);
     if (nextViewportKey === lastViewportKeyRef.current) {
       return;
     }
 
     lastViewportKeyRef.current = nextViewportKey;
-    applyViewport(map, places);
-  }, [places]);
+    applyViewport(map, places, draftPins);
+  }, [places, draftPins, autoFitViewport]);
 
   return (
     <div
@@ -196,7 +259,10 @@ function syncMarkers(
       existing.marker.setLngLat(toLngLat(place.location));
       existing.element.title = place.name;
       existing.element.classList.toggle(styles.pinActive, isActive);
-      existing.element.onclick = () => onPinClickRef.current?.(place.id);
+      existing.element.onclick = (event) => {
+        event.stopPropagation();
+        onPinClickRef.current?.(place.id);
+      };
       continue;
     }
 
@@ -205,12 +271,60 @@ function syncMarkers(
       ? `${styles.pin} ${styles.pinActive}`
       : styles.pin;
     element.title = place.name;
-    element.onclick = () => onPinClickRef.current?.(place.id);
+    element.onclick = (event) => {
+      event.stopPropagation();
+      onPinClickRef.current?.(place.id);
+    };
 
     const marker = new maplibregl.Marker({ element })
       .setLngLat(toLngLat(place.location))
       .addTo(map);
 
     markersById.current.set(place.id, { marker, element });
+  }
+}
+
+function syncDraftMarkers(
+  map: MaplibreMap,
+  maplibregl: Awaited<typeof maplibreglModulePromise>["default"],
+  draftPins: GuideMapDraftPin[],
+  markersById: { current: Map<string, MarkerEntry> },
+  onDraftPinClickRef: { current: ((draftId: string) => void) | undefined },
+) {
+  const nextDraftIds = new Set(draftPins.map((pin) => pin.id));
+
+  for (const [draftId, { marker }] of markersById.current) {
+    if (!nextDraftIds.has(draftId)) {
+      marker.remove();
+      markersById.current.delete(draftId);
+    }
+  }
+
+  for (const draftPin of draftPins) {
+    const existing = markersById.current.get(draftPin.id);
+
+    if (existing) {
+      existing.marker.setLngLat(toLngLat(draftPin.location));
+      existing.element.title = draftPin.label ?? "New place";
+      existing.element.onclick = (event) => {
+        event.stopPropagation();
+        onDraftPinClickRef.current?.(draftPin.id);
+      };
+      continue;
+    }
+
+    const element = document.createElement("div");
+    element.className = `${styles.pin} ${styles.pinDraft}`;
+    element.title = draftPin.label ?? "New place";
+    element.onclick = (event) => {
+      event.stopPropagation();
+      onDraftPinClickRef.current?.(draftPin.id);
+    };
+
+    const marker = new maplibregl.Marker({ element })
+      .setLngLat(toLngLat(draftPin.location))
+      .addTo(map);
+
+    markersById.current.set(draftPin.id, { marker, element });
   }
 }
