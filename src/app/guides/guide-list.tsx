@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { CachedImage } from "@/components/cached-image";
+import {
+  coverListCacheKey,
+  preloadCachedImages,
+} from "@/lib/image-cache";
 import type { GuideListItem } from "@/types/guide";
 import styles from "./guide-list.module.css";
 
@@ -19,18 +25,19 @@ function isViewMode(value: string | null): value is ViewMode {
 }
 
 function GuideCover({ guide }: { guide: GuideListItem }) {
-  if (guide.coverPhotoSrc) {
-    return (
-      <img
-        className={styles.coverImage}
-        src={guide.coverPhotoSrc}
-        alt=""
-        loading="lazy"
-      />
-    );
+  if (!guide.coverPhotoSrc || !guide.coverPhotoUrl) {
+    return <div className={styles.coverPlaceholder} aria-hidden="true" />;
   }
 
-  return <div className={styles.coverPlaceholder} aria-hidden="true" />;
+  return (
+    <CachedImage
+      cacheKey={coverListCacheKey(guide.coverPhotoUrl)}
+      src={guide.coverPhotoSrc}
+      alt=""
+      className={styles.coverImage}
+      readyClassName={styles.coverImageReady}
+    />
+  );
 }
 
 function GuideMeta({
@@ -86,16 +93,55 @@ function GuideActions({
   );
 }
 
+function readViewFromLocation(): ViewMode {
+  if (typeof window === "undefined") {
+    return "grid";
+  }
+
+  const requestedView = new URLSearchParams(window.location.search).get("view");
+  return isViewMode(requestedView) ? requestedView : "grid";
+}
+
 export function GuideList({ guides, variant = "author" }: GuideListProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedView = searchParams.get("view");
-  const view: ViewMode = isViewMode(requestedView) ? requestedView : "grid";
+  const initialView: ViewMode = isViewMode(requestedView) ? requestedView : "grid";
+  const [view, setView] = useState<ViewMode>(initialView);
 
-  function setView(nextView: ViewMode) {
-    const params = new URLSearchParams(searchParams.toString());
+  useEffect(() => {
+    preloadCachedImages(
+      guides.flatMap((guide) =>
+        guide.coverPhotoSrc && guide.coverPhotoUrl
+          ? [
+              {
+                cacheKey: coverListCacheKey(guide.coverPhotoUrl),
+                src: guide.coverPhotoSrc,
+              },
+            ]
+          : [],
+      ),
+    );
+  }, [guides]);
+
+  useEffect(() => {
+    function syncViewFromLocation() {
+      setView(readViewFromLocation());
+    }
+
+    syncViewFromLocation();
+    window.addEventListener("popstate", syncViewFromLocation);
+    return () => {
+      window.removeEventListener("popstate", syncViewFromLocation);
+    };
+  }, []);
+
+  function setViewMode(nextView: ViewMode) {
+    setView(nextView);
+
+    const params = new URLSearchParams(window.location.search);
     params.set("view", nextView);
-    router.replace(`/guides?${params.toString()}`, { scroll: false });
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
   }
 
   if (guides.length === 0) {
@@ -128,7 +174,7 @@ export function GuideList({ guides, variant = "author" }: GuideListProps) {
             }`}
             type="button"
             aria-pressed={view === "grid"}
-            onClick={() => setView("grid")}
+            onClick={() => setViewMode("grid")}
           >
             Grid
           </button>
@@ -138,7 +184,7 @@ export function GuideList({ guides, variant = "author" }: GuideListProps) {
             }`}
             type="button"
             aria-pressed={view === "list"}
-            onClick={() => setView("list")}
+            onClick={() => setViewMode("list")}
           >
             List
           </button>

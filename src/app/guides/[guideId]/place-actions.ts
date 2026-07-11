@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthor } from "@/lib/auth";
+import { reverseGeocode } from "@/lib/geocode";
 import {
   deletePlacePhotoStorage,
   uploadPlacePhoto,
@@ -140,6 +141,7 @@ export async function savePlaceAction(
   const category = readOptionalText(formData, "category");
   const rating = readRating(formData);
   const placeId = readPlaceId(formData);
+  const address = await reverseGeocode(location);
 
   try {
     if (placeId) {
@@ -152,6 +154,7 @@ export async function savePlaceAction(
         placeId,
         guideId,
         name,
+        address: address ?? existing.address,
         notes,
         category,
         rating,
@@ -171,6 +174,7 @@ export async function savePlaceAction(
     const created = await createPlace({
       guideId,
       name,
+      address,
       notes,
       category,
       rating,

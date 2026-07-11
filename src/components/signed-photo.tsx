@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  cacheImageBlob,
+  getCachedBlobUrl,
+  isImageCached,
+  photoCacheKey,
+} from "@/lib/image-cache";
 import type { SignedPhotoResponse } from "@/types/photo";
 import styles from "./signed-photo.module.css";
 
@@ -24,14 +30,26 @@ export function SignedPhoto({
   className,
   variant = "display",
 }: SignedPhotoProps) {
-  const [currentSrc, setCurrentSrc] = useState(src);
-  const [currentExpiresAt, setCurrentExpiresAt] = useState(expiresAt);
+  const cacheKey = photoCacheKey(photoId, variant);
+  const signedSrcRef = useRef(src);
   const refreshingRef = useRef(false);
+  const [displaySrc, setDisplaySrc] = useState(
+    () => getCachedBlobUrl(cacheKey) ?? src,
+  );
+  const [currentExpiresAt, setCurrentExpiresAt] = useState(expiresAt);
 
   useEffect(() => {
-    setCurrentSrc(src);
+    signedSrcRef.current = src;
     setCurrentExpiresAt(expiresAt);
-  }, [src, expiresAt]);
+
+    const cached = getCachedBlobUrl(cacheKey);
+    if (cached) {
+      setDisplaySrc(cached);
+      return;
+    }
+
+    setDisplaySrc(src);
+  }, [cacheKey, expiresAt, src]);
 
   const refresh = useCallback(async () => {
     if (refreshingRef.current) {
@@ -49,12 +67,16 @@ export function SignedPhoto({
       }
 
       const data = (await response.json()) as SignedPhotoResponse;
-      setCurrentSrc(data.url);
+      signedSrcRef.current = data.url;
       setCurrentExpiresAt(data.expiresAt);
+
+      if (!isImageCached(cacheKey)) {
+        setDisplaySrc(data.url);
+      }
     } finally {
       refreshingRef.current = false;
     }
-  }, [photoId, variant]);
+  }, [cacheKey, photoId, variant]);
 
   useEffect(() => {
     const msUntilRefresh = currentExpiresAt - Date.now() - REFRESH_BUFFER_MS;
@@ -76,12 +98,20 @@ export function SignedPhoto({
     void refresh();
   }, [refresh]);
 
+  const handleLoad = useCallback(() => {
+    if (!isImageCached(cacheKey)) {
+      void cacheImageBlob(cacheKey, signedSrcRef.current);
+    }
+  }, [cacheKey]);
+
   return (
     // eslint-disable-next-line @next/next/no-img-element -- signed URLs are ephemeral
     <img
-      src={currentSrc}
+      src={displaySrc}
       alt={alt}
       className={className ? `${styles.photo} ${className}` : styles.photo}
+      decoding="async"
+      onLoad={handleLoad}
       onError={handleError}
     />
   );

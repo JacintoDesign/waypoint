@@ -5,9 +5,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useId,
   useRef,
   useState,
   useTransition,
+  type RefObject,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -114,6 +116,240 @@ function defaultNameFromFile(file: File): string {
     .replace(/\.[^.]+$/, "")
     .replace(/[-_]+/g, " ")
     .trim();
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M4 6l4 4 4-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function useCloseOnOutsideClick(
+  containerRef: RefObject<HTMLElement | null>,
+  isOpen: boolean,
+  onClose: () => void,
+) {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [containerRef, isOpen, onClose]);
+}
+
+type FormSelectOption = {
+  value: string;
+  label: string;
+};
+
+const RATING_OPTIONS: FormSelectOption[] = [
+  { value: "", label: "No rating" },
+  ...[1, 2, 3, 4, 5].map((rating) => ({
+    value: String(rating),
+    label: String(rating),
+  })),
+];
+
+type FormSelectProps = {
+  name: string;
+  value: string;
+  options: FormSelectOption[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function FormSelect({
+  name,
+  value,
+  options,
+  disabled = false,
+  onChange,
+}: FormSelectProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const close = useCallback(() => setIsOpen(false), []);
+  useCloseOnOutsideClick(containerRef, isOpen, close);
+
+  const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel = selectedOption?.label ?? options[0]?.label ?? "";
+
+  return (
+    <div className={styles.combobox} ref={containerRef}>
+      <div className={styles.comboboxInputWrap}>
+        <input type="hidden" name={name} value={value} />
+        <button
+          className={styles.selectTrigger}
+          type="button"
+          disabled={disabled}
+          aria-expanded={isOpen}
+          aria-controls={listId}
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <span
+            className={
+              value ? styles.selectValue : styles.selectPlaceholder
+            }
+          >
+            {selectedLabel}
+          </span>
+        </button>
+        <span className={styles.comboboxChevron} aria-hidden="true">
+          <ChevronDownIcon />
+        </span>
+      </div>
+      {isOpen ? (
+        <ul className={styles.comboboxList} id={listId} role="listbox">
+          {options.map((option) => (
+            <li key={option.value || "__empty__"} role="presentation">
+              <button
+                className={
+                  option.value === value
+                    ? `${styles.comboboxOption} ${styles.comboboxOptionSelected}`
+                    : styles.comboboxOption
+                }
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+type CategoryComboboxProps = {
+  name: string;
+  value: string;
+  suggestions: string[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function CategoryCombobox({
+  name,
+  value,
+  suggestions,
+  disabled = false,
+  onChange,
+}: CategoryComboboxProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setShowAllSuggestions(false);
+  }, []);
+  useCloseOnOutsideClick(containerRef, isOpen, close);
+
+  const visibleSuggestions = showAllSuggestions
+    ? suggestions
+    : suggestions.filter((suggestion) => {
+        if (!value.trim()) {
+          return true;
+        }
+
+        return suggestion.toLowerCase().includes(value.toLowerCase());
+      });
+
+  return (
+    <div className={styles.combobox} ref={containerRef}>
+      <div className={styles.comboboxInputWrap}>
+        <input
+          className={styles.comboboxInput}
+          name={name}
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setShowAllSuggestions(false);
+            setIsOpen(true);
+          }}
+          onFocus={() => {
+            setShowAllSuggestions(false);
+            setIsOpen(true);
+          }}
+          disabled={disabled}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={isOpen && visibleSuggestions.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+        />
+        <button
+          className={styles.comboboxToggle}
+          type="button"
+          tabIndex={-1}
+          aria-label="Show category suggestions"
+          disabled={disabled}
+          onClick={() => {
+            setShowAllSuggestions(true);
+            setIsOpen(true);
+          }}
+        >
+          <ChevronDownIcon />
+        </button>
+      </div>
+      {isOpen && visibleSuggestions.length > 0 ? (
+        <ul className={styles.comboboxList} id={listId} role="listbox">
+          {visibleSuggestions.map((suggestion) => (
+            <li key={suggestion} role="presentation">
+              <button
+                className={
+                  suggestion === value
+                    ? `${styles.comboboxOption} ${styles.comboboxOptionSelected}`
+                    : styles.comboboxOption
+                }
+                type="button"
+                role="option"
+                aria-selected={suggestion === value}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(suggestion);
+                  close();
+                }}
+              >
+                {suggestion}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 export function GuideEditor({ guideId, places }: GuideEditorProps) {
@@ -860,47 +1096,34 @@ export function GuideEditor({ guideId, places }: GuideEditorProps) {
 
             <label className={styles.field}>
               <span className={styles.label}>Category</span>
-              <input
-                className={styles.input}
+              <CategoryCombobox
                 name="category"
-                list={`categories-${guideId}`}
                 value={formState.category}
-                onChange={(event) =>
+                suggestions={CATEGORY_SUGGESTIONS}
+                disabled={isPending}
+                onChange={(category) =>
                   setFormState((current) => ({
                     ...current,
-                    category: event.target.value,
+                    category,
                   }))
                 }
-                disabled={isPending}
               />
-              <datalist id={`categories-${guideId}`}>
-                {CATEGORY_SUGGESTIONS.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
             </label>
 
             <label className={styles.field}>
               <span className={styles.label}>Rating</span>
-              <select
-                className={styles.input}
+              <FormSelect
                 name="rating"
                 value={formState.rating}
-                onChange={(event) =>
+                options={RATING_OPTIONS}
+                disabled={isPending}
+                onChange={(rating) =>
                   setFormState((current) => ({
                     ...current,
-                    rating: event.target.value,
+                    rating,
                   }))
                 }
-                disabled={isPending}
-              >
-                <option value="">No rating</option>
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <div className={styles.photosSection}>

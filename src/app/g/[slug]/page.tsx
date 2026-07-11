@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GuideCoverImage } from "@/app/g/[slug]/guide-cover-image";
 import { GuideViewer } from "@/components/guide-viewer";
 import { PublicBrowseNav } from "@/components/public-browse-nav";
 import { getSessionUser } from "@/lib/auth";
 import { resolveCoverPhotoSrc } from "@/lib/guide-covers";
+import { enrichPlacesWithAddresses } from "@/lib/resolve-place-address";
 import { getGuideBySlug } from "@/queries/guides";
 import { getSignedPhotosGroupedByPlaceIds } from "@/queries/photos";
 import { getPlacesByGuideId } from "@/queries/places";
@@ -25,7 +27,9 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
 
   const isOwnerPreview = !guide.isPublic && user?.id === guide.userId;
 
-  const places = await getPlacesByGuideId(guide.id);
+  const places = await enrichPlacesWithAddresses(
+    await getPlacesByGuideId(guide.id),
+  );
   const photosByPlaceId = places.length
     ? await getSignedPhotosGroupedByPlaceIds(places.map((place) => place.id))
     : new Map();
@@ -56,14 +60,11 @@ export default async function PublicGuidePage({ params }: PublicGuidePageProps) 
         </div>
       ) : null}
 
-      {coverPhotoSrc ? (
-        <div className={styles.coverFrame}>
-          <img
-            className={styles.coverImage}
-            src={coverPhotoSrc}
-            alt=""
-          />
-        </div>
+      {coverPhotoSrc && guide.coverPhotoUrl ? (
+        <GuideCoverImage
+          coverPhotoUrl={guide.coverPhotoUrl}
+          src={coverPhotoSrc}
+        />
       ) : null}
 
       <header className={styles.header}>

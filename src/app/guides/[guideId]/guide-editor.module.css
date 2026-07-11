@@ -162,6 +162,116 @@
   border-color: var(--color-on-surface);
 }
 
+.combobox {
+  position: relative;
+}
+
+.comboboxInputWrap {
+  position: relative;
+}
+
+.comboboxInput,
+.selectTrigger {
+  width: 100%;
+  padding: 12px 36px 12px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-sm);
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  font: inherit;
+}
+
+.comboboxInput:focus,
+.selectTrigger:focus {
+  outline: none;
+  border-color: var(--color-on-surface);
+}
+
+.comboboxInput:disabled,
+.selectTrigger:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.selectTrigger {
+  text-align: left;
+  cursor: pointer;
+}
+
+.selectPlaceholder {
+  color: var(--color-muted);
+}
+
+.comboboxToggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.comboboxToggle:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.comboboxChevron {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.comboboxList {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--rounded-sm);
+  background-color: var(--color-surface);
+}
+
+.comboboxOption {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--color-on-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.comboboxOption:hover,
+.comboboxOption:focus-visible {
+  background-color: var(--color-neutral);
+  outline: none;
+}
+
+.comboboxOptionSelected {
+  background-color: var(--color-primary-soft);
+}
+
 .textarea {
   resize: vertical;
   min-height: 96px;

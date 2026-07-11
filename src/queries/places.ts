@@ -114,6 +114,7 @@ export async function getPlacesByGuideId(guideId: string): Promise<Place[]> {
 export type CreatePlaceInput = {
   guideId: string;
   name: string;
+  address?: string | null;
   notes?: string | null;
   category?: string | null;
   rating?: number | null;
@@ -125,6 +126,7 @@ export type UpdatePlaceInput = {
   placeId: string;
   guideId: string;
   name: string;
+  address?: string | null;
   notes?: string | null;
   category?: string | null;
   rating?: number | null;
@@ -165,6 +167,7 @@ export async function createPlace(input: CreatePlaceInput): Promise<Place> {
     .insert({
       guide_id: input.guideId,
       name: input.name,
+      address: input.address ?? null,
       notes: input.notes ?? null,
       category: input.category ?? null,
       rating: input.rating ?? null,
@@ -190,6 +193,7 @@ export async function updatePlace(input: UpdatePlaceInput): Promise<Place> {
     .from("places")
     .update({
       name: input.name,
+      address: input.address ?? null,
       notes: input.notes ?? null,
       category: input.category ?? null,
       rating: input.rating ?? null,
@@ -208,6 +212,23 @@ export async function updatePlace(input: UpdatePlaceInput): Promise<Place> {
 
   const row = data as PlaceByGuideRow;
   return mapBasePlaceFields(row, parseEwkbPoint(row.location));
+}
+
+export async function updatePlaceAddress(
+  placeId: string,
+  guideId: string,
+  address: string,
+): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("places")
+    .update({ address })
+    .eq("id", placeId)
+    .eq("guide_id", guideId);
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function deletePlace(

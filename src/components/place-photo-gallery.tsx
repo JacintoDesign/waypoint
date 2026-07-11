@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FocusEvent } from "react";
 import { SignedPhoto } from "@/components/signed-photo";
+import { photoCacheKey, preloadCachedImages } from "@/lib/image-cache";
 import type { SignedPlacePhoto } from "@/types/photo";
 import styles from "./place-photo-gallery.module.css";
 
@@ -27,6 +28,15 @@ export function PlacePhotoGallery({ photos, placeName }: PlacePhotoGalleryProps)
   const photoCount = photos.length;
   const hasMultiple = photoCount > 1;
   const activePhoto = photos[activeIndex];
+
+  useEffect(() => {
+    preloadCachedImages(
+      photos.map((photo) => ({
+        cacheKey: photoCacheKey(photo.id, "display"),
+        src: photo.url,
+      })),
+    );
+  }, [photos]);
 
   const goTo = useCallback(
     (index: number) => {
