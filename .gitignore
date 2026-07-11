@@ -43,3 +43,4 @@ scripts/set-author-password.mjs
 
 # turbo
 .turbo/
+.vercel
