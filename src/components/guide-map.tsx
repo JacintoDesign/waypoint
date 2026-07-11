@@ -84,6 +84,11 @@ function getFlyToCamera(map: MaplibreMap, viewport: MapViewport) {
     if (camera) {
       return camera;
     }
+
+    return {
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+    };
   }
 
   return {
